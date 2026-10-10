@@ -50,8 +50,17 @@ describe("画面の直接読み込み", () => {
     expect(response.headers.get("content-type")).toContain("application/json");
   });
 
+  it("受け箱と分類管理の直接読み込みは SPA", async () => {
+    const inbox = await call("/inbox");
+    const taxonomy = await call("/taxonomy");
+    expect(inbox.status).toBe(200);
+    expect(taxonomy.status).toBe(200);
+    expect(await inbox.text()).toContain('id="root"');
+    expect(await taxonomy.text()).toContain('id="root"');
+  });
+
   it("まだ画面が無い経路は JSON 404", async () => {
-    const response = await call("/inbox");
+    const response = await call("/export");
     expect(response.status).toBe(404);
     const body: unknown = await response.json();
     expect(body).toMatchObject({
