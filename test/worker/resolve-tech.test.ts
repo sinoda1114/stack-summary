@@ -1,23 +1,9 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
-import { insertModelAliases } from "../../src/worker/db/model-annotations";
 import {
   planTechResolution,
-  resolveExtractedTech as resolveWithoutAliases,
-  type ResolveExtractedTechInput,
-  type ResolveExtractedTechResult,
+  resolveExtractedTech,
 } from "../../src/worker/ingest/resolve-tech";
-
-async function resolveExtractedTech(
-  db: D1Database,
-  input: ResolveExtractedTechInput,
-): Promise<ResolveExtractedTechResult> {
-  const result = await resolveWithoutAliases(db, input);
-  if (result.kind === "attached") {
-    await insertModelAliases(db, result.techId, result.aliases);
-  }
-  return result;
-}
 
 const NOW = "2026-10-10T00:00:00.000Z";
 

@@ -14,7 +14,6 @@ import {
   type ImportRecord,
 } from "../db/imports";
 import {
-  insertModelAliases,
   replaceModelAnnotations,
 } from "../db/model-annotations";
 import { upsertSplitMemo, type SavedMemo } from "../db/memos";
@@ -138,7 +137,6 @@ export async function applyExtractions(
         );
       }
       const labels = aliasLabels(tech.name, tech.aliases);
-      await insertModelAliases(runner.db, resolved.techId, labels);
       const kept = aliasKeep.get(resolved.techId) ?? {
         memoId: pair.memo.id,
         aliases: new Map<string, { key: string; label: string }>(),

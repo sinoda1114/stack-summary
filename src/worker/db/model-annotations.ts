@@ -5,17 +5,6 @@ export type ModelAnnotation = {
   tagIds: readonly string[];
 };
 
-export async function insertModelAliases(
-  db: D1Database,
-  techId: string,
-  aliases: readonly { key: string; label: string }[],
-): Promise<void> {
-  if (aliases.length === 0) {
-    return;
-  }
-  await db.batch(aliases.map((alias) => aliasInsert(db, techId, alias)));
-}
-
 export async function replaceModelAnnotations(
   db: D1Database,
   items: readonly ModelAnnotation[],
