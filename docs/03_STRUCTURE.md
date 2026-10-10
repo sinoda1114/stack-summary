@@ -151,7 +151,7 @@ line-send と共通の部分（Hono、React、Mantine、Vite、テスト）は�
 
 | 順 | 内容 | 完了の目安 | 対応 |
 | --- | --- | --- | --- |
-| 1 | 土台: 雛形、`.npmrc`、CI、Dependabot、Access JWT 検証。固定ユーザーは本番の Worker に入れない | CI が緑。JWT なしの `GET /api/health` が 403 | NFR-01 |
+| 1 | 土台: 雛形、`.npmrc`、CI、Dependabot、Access JWT 検証。固定ユーザーは本番の Worker に入れない | CI が緑。`OWNER_EMAIL` があるとき JWT なしの `GET /api/health` が 403。無いときは JSON | NFR-01 |
 | 2 | D1 マイグレーション（スキーマは `migrations/0001_init.sql`） | テーブルと大分類 9 個ができる | 02 §4 |
 | 3 | 正規化・重複判定・別名照合（Gemini なし） | 単体テストが通る | FR-04, FR-05, FR-12, FR-13 |
 | 4 | Gemini 呼び出しと 3 つの指示文（分割・抽出・分類） | モックで結合テストが通る | FR-03, FR-10, FR-11, FR-23 |
@@ -160,7 +160,7 @@ line-send と共通の部分（Hono、React、Mantine、Vite、テスト）は�
 | 7 | 全体図・技術の詳細・小分類の比較（Mantine） | 状態の付与と絞り込みができる | FR-30〜33, FR-40〜43 |
 | 8 | 受け箱と分類の管理（統合・移動・改名） | 新しい小分類を確認・統合できる。技術の統合は 02 §6.10 | FR-15, FR-24〜27 |
 | 9 | メモ検索・言及の格上げ・書き出し | 書き出しから全データが読める | FR-11, FR-44, FR-50 |
-| 10 | スマホ閲覧と PWA、本番デプロイ | 375px で全体図を見られる。未認証の `/api` が拒否される。main マージで自動デプロイされる | NFR-10, NFR-12, AC-10 |
+| 10 | スマホ閲覧と PWA、本番デプロイ | 375px で全体図を見られる。`OWNER_EMAIL` があるとき未認証の `/api` が拒否される。main マージで自動デプロイされる | NFR-10, NFR-12, AC-10 |
 
 各段階は feature ブランチと PR で進める。段階 1 の CI は、push と pull_request でテストが走ることである。自動デプロイの workflow は段階 10 で足す。段階 1 の CI はその入口になる。
 

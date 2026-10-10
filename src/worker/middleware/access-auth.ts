@@ -17,18 +17,50 @@ export type AccessConfig = {
 
 const jwksByUrl = new Map<string, JWTVerifyGetKey>();
 
-function readAccessConfig(env: Env): AccessConfig | null {
-  const teamDomain = env.ACCESS_TEAM_DOMAIN.trim().replace(/\/+$/, "");
-  const audience = env.ACCESS_AUD.trim();
-  const ownerEmail = env.OWNER_EMAIL.trim();
-  if (
-    !isAccessTeamDomain(teamDomain) ||
-    audience.length === 0 ||
-    ownerEmail.length === 0
-  ) {
-    return null;
+type AuthBindings = {
+  teamDomain: unknown;
+  audience: unknown;
+  ownerEmail: unknown;
+  previewOpen: unknown;
+};
+
+type AuthDecision =
+  | { kind: "allow" }
+  | { kind: "deny" }
+  | { kind: "verify"; config: AccessConfig };
+
+function readString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function authBindings(env: Env): AuthBindings {
+  const source = env as Env & {
+    OWNER_EMAIL?: unknown;
+    PREVIEW_OPEN?: unknown;
+  };
+  return {
+    teamDomain: source.ACCESS_TEAM_DOMAIN,
+    audience: source.ACCESS_AUD,
+    ownerEmail: source.OWNER_EMAIL,
+    previewOpen: source.PREVIEW_OPEN,
+  };
+}
+
+export function decideAuth(env: Env): AuthDecision {
+  const bindings = authBindings(env);
+  const ownerEmail = readString(bindings.ownerEmail);
+  if (ownerEmail.length === 0) {
+    return { kind: "allow" };
   }
-  return { teamDomain, audience, ownerEmail };
+  const teamDomain = readString(bindings.teamDomain).replace(/\/+$/, "");
+  const audience = readString(bindings.audience);
+  if (isAccessTeamDomain(teamDomain) && audience.length > 0) {
+    return { kind: "verify", config: { teamDomain, audience, ownerEmail } };
+  }
+  if (bindings.previewOpen === "1") {
+    return { kind: "allow" };
+  }
+  return { kind: "deny" };
 }
 
 function isAccessTeamDomain(teamDomain: string): boolean {
@@ -79,22 +111,39 @@ export async function verifyAccessJwt(
 }
 
 export const accessAuth = createMiddleware<{ Bindings: Env }>(async (c, next) => {
-  const config = readAccessConfig(c.env);
-  const token = c.req.header(ACCESS_HEADER)?.trim();
-  if (config === null || token === undefined || token.length === 0) {
-    return c.json(fail("forbidden", FORBIDDEN_MESSAGE), 403);
+  const decision = decideAuth(c.env);
+  switch (decision.kind) {
+    case "allow":
+      await next();
+      return;
+    case "deny":
+      return c.json(fail("forbidden", FORBIDDEN_MESSAGE), 403);
+    case "verify": {
+      const token = c.req.header(ACCESS_HEADER)?.trim();
+      if (token === undefined || token.length === 0) {
+        return c.json(fail("forbidden", FORBIDDEN_MESSAGE), 403);
+      }
+      try {
+        await verifyAccessJwt(
+          token,
+          decision.config,
+          jwksFor(decision.config.teamDomain),
+        );
+      } catch (error) {
+        console.error(
+          "access jwt rejected",
+          error instanceof Error ? error.name : "unknown",
+        );
+        return c.json(fail("forbidden", FORBIDDEN_MESSAGE), 403);
+      }
+      await next();
+      return;
+    }
+    default: {
+      const unreachable: never = decision;
+      return unreachable;
+    }
   }
-  try {
-    await verifyAccessJwt(token, config, jwksFor(config.teamDomain));
-  } catch (error) {
-    console.error(
-      "access jwt rejected",
-      error instanceof Error ? error.name : "unknown",
-    );
-    return c.json(fail("forbidden", FORBIDDEN_MESSAGE), 403);
-  }
-  await next();
-  return;
 });
 
 function emailsMatch(claim: unknown, ownerEmail: string): boolean {
