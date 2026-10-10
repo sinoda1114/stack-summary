@@ -77,7 +77,7 @@ export function ChatFab() {
             p="md"
             bg="var(--mantine-color-white)"
           >
-            <Stack gap="sm" className="chat-body">
+            <Stack gap="sm">
               <Group justify="space-between" wrap="nowrap">
                 <Text fw={500}>AIチャット</Text>
                 <CloseButton aria-label="閉じる" onClick={() => setOpen(false)} />

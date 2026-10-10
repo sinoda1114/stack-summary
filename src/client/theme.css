@@ -99,7 +99,8 @@ body {
 
 .nav-link:focus-visible,
 .record-row a:focus-visible,
-.wordmark:focus-visible {
+.wordmark:focus-visible,
+.chat-fab:focus-visible {
   outline: 2px solid var(--mantine-color-accent-6);
   outline-offset: 3px;
 }
@@ -229,10 +230,6 @@ body {
   overflow: auto;
 }
 
-.chat-body {
-  min-height: 0;
-}
-
 .chat-fab {
   width: 56px;
   height: 56px;
@@ -244,11 +241,6 @@ body {
   background: var(--mantine-color-accent-6);
   color: var(--mantine-color-white);
   cursor: pointer;
-}
-
-.chat-fab:focus-visible {
-  outline: 2px solid var(--mantine-color-accent-6);
-  outline-offset: 3px;
 }
 
 @media (max-width: 767px) {
@@ -268,10 +260,10 @@ body {
   }
 
   .chat-panel {
-    max-height: calc(100dvh - 21rem - env(safe-area-inset-bottom, 0px));
+    max-height: max(0px, calc(100dvh - 15rem - 5.25rem - env(safe-area-inset-bottom, 0px)));
   }
 
   .chat-log {
-    max-height: 8rem;
+    max-height: none;
   }
 }
