@@ -106,6 +106,7 @@ export function TechPage() {
           />
           <Textarea label="理由" value={reason} onChange={(event) => setReason(event.currentTarget.value)} />
           <Button onClick={() => void save()}>保存</Button>
+          <MergeBox sourceId={params.id} />
         </Stack>
       )}
       <Stack>
@@ -119,3 +120,61 @@ export function TechPage() {
   );
 }
 
+type OverviewTechList = {
+  subcategories: { techs: { id: string; name: string }[] }[];
+}[];
+
+function MergeBox(props: { sourceId: string | undefined }) {
+  const [intoId, setIntoId] = useState<string | null>(null);
+  const [options, setOptions] = useState<{ value: string; label: string }[]>([]);
+  const [needsChoice, setNeedsChoice] = useState(false);
+
+  useEffect(() => {
+    let current = true;
+    void requestJson<OverviewTechList>("/api/overview").then((result) => {
+      if (!current || !result.success || result.data === null) {
+        return;
+      }
+      const next: { value: string; label: string }[] = [];
+      for (const category of result.data) {
+        for (const subcategory of category.subcategories) {
+          for (const tech of subcategory.techs) {
+            if (tech.id !== props.sourceId) {
+              next.push({ value: tech.id, label: tech.name });
+            }
+          }
+        }
+      }
+      setOptions(next);
+    });
+    return () => {
+      current = false;
+    };
+  }, [props.sourceId]);
+
+  async function merge(reasonChoice?: "into" | "source"): Promise<void> {
+    if (props.sourceId === undefined || intoId === null) {
+      return;
+    }
+    const response = await fetch(`/api/techs/${props.sourceId}/merge`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ intoId, reasonChoice }),
+    });
+    setNeedsChoice(response.status === 409);
+  }
+
+  return (
+    <Stack>
+      <Select label="統合先" data={options} value={intoId} onChange={setIntoId} />
+      <Button onClick={() => void merge()}>統合</Button>
+      {needsChoice ? (
+        <Stack>
+          <Text>残す理由を選んでください</Text>
+          <Button onClick={() => void merge("into")}>残す側の理由</Button>
+          <Button onClick={() => void merge("source")}>統合元の理由</Button>
+        </Stack>
+      ) : null}
+    </Stack>
+  );
+}
