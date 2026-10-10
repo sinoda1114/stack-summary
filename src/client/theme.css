@@ -194,6 +194,8 @@ body {
 .chat-log {
   overflow: auto;
   max-height: 16rem;
+  min-height: 0;
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -227,7 +229,13 @@ body {
   max-height: min(32rem, calc(100dvh - 7rem));
   display: flex;
   flex-direction: column;
-  overflow: auto;
+  overflow: hidden;
+}
+
+.chat-stack {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
 }
 
 .chat-fab {
