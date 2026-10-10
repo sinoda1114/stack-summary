@@ -4,6 +4,45 @@ import {
   type MantineColorsTuple,
 } from "@mantine/core";
 
+const moss: MantineColorsTuple = [
+  "#f1faf5",
+  "#d8f3e4",
+  "#b4e6cc",
+  "#86d4ad",
+  "#4fba86",
+  "#22a066",
+  "#0e7a45",
+  "#0c6840",
+  "#0b5a32",
+  "#0b5a32",
+];
+
+const ochre: MantineColorsTuple = [
+  "#fff8ea",
+  "#fff1d6",
+  "#ffe3ad",
+  "#f5ce78",
+  "#e0ae45",
+  "#c48a1a",
+  "#8a5200",
+  "#7a4900",
+  "#6a3d00",
+  "#6a3d00",
+];
+
+const ash: MantineColorsTuple = [
+  "#f7f8f9",
+  "#eef0f3",
+  "#dde1e6",
+  "#c5ccd3",
+  "#9aa3ad",
+  "#6b7580",
+  "#3e4650",
+  "#343c45",
+  "#2c333a",
+  "#2c333a",
+];
+
 const accent: MantineColorsTuple = [
   "#e8f1ff",
   "#d3e4ff",
@@ -46,7 +85,7 @@ export const theme = createTheme({
     },
   },
   defaultRadius: 16,
-  colors: { accent },
+  colors: { accent, moss, ochre, ash },
   components: {
     Button: {
       defaultProps: { variant: "default", fw: 500, radius: 999 },
@@ -108,7 +147,6 @@ export const theme = createTheme({
       },
     },
     Accordion: {
-      defaultProps: { radius: 16 },
       styles: {
         item: {
           backgroundColor: "var(--mantine-color-white)",
@@ -120,7 +158,7 @@ export const theme = createTheme({
     Kbd: {
       styles: {
         root: {
-          backgroundColor: "#ffffff",
+          backgroundColor: "var(--mantine-color-white)",
           borderColor: "var(--mantine-color-default-border)",
           color: "var(--mantine-color-text)",
           borderRadius: 8,

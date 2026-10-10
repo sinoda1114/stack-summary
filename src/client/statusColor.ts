@@ -1,11 +1,11 @@
 import type { ImportStatusLabel, TechStatus } from "../shared/labels";
 
 export const TECH_STATUS_COLOR: Record<TechStatus, string> = {
-  adopted: "green",
+  adopted: "moss",
   want_to_try: "blue",
-  watching: "yellow",
-  rejected: "gray",
-  unrated: "gray",
+  watching: "ochre",
+  rejected: "ash",
+  unrated: "ash",
 };
 
 export function techStatusVariant(status: TechStatus): "light" | "outline" {
@@ -13,8 +13,8 @@ export function techStatusVariant(status: TechStatus): "light" | "outline" {
 }
 
 export const IMPORT_STATUS_COLOR: Record<ImportStatusLabel, string> = {
-  queued: "gray",
-  processing: "yellow",
-  done: "green",
+  queued: "ash",
+  processing: "ochre",
+  done: "moss",
   failed: "red",
 };
