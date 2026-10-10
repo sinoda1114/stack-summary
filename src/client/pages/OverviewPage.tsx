@@ -2,6 +2,7 @@ import { Accordion, Group, Select, Stack, Text, TextInput, Title } from "@mantin
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { TECH_STATUS_LABELS, type TechStatus } from "../../shared/labels";
+import { isAbortError, requestJson } from "../api";
 import { TechBadge } from "../components/TechBadge";
 import { useIsMobile } from "../hooks/useIsMobile";
 
@@ -33,8 +34,29 @@ export function OverviewPage() {
     }
     const query = params.size === 0 ? "" : `?${params.toString()}`;
     const controller = new AbortController();
-    void loadOverview(query, controller.signal, setCategories, setLoadError);
+    let current = true;
+    void requestJson<OverviewCategory[]>(`/api/overview${query}`, { signal: controller.signal })
+      .then((result) => {
+        if (!current) {
+          return;
+        }
+        if (!result.success || result.data === null) {
+          setCategories([]);
+          setLoadError(result.error?.message ?? "全体図を取得できませんでした");
+          return;
+        }
+        setLoadError(null);
+        setCategories(result.data);
+      })
+      .catch((error: unknown) => {
+        if (!current || isAbortError(error)) {
+          return;
+        }
+        setCategories([]);
+        setLoadError("通信に失敗しました");
+      });
     return () => {
+      current = false;
       controller.abort();
     };
   }, [status, q]);
@@ -104,40 +126,4 @@ export function OverviewPage() {
 function showsSubcategoryName(category: OverviewCategory): boolean {
   const count = category.subcategoryCount ?? category.subcategories.length;
   return count !== 1;
-}
-
-async function loadOverview(
-  query: string,
-  signal: AbortSignal,
-  setCategories: (categories: OverviewCategory[]) => void,
-  setLoadError: (message: string | null) => void,
-): Promise<void> {
-  try {
-    const response = await fetch(`/api/overview${query}`, { signal });
-    const body = (await response.json()) as {
-      success: boolean;
-      data: OverviewCategory[] | null;
-      error: { message: string } | null;
-    };
-    if (signal.aborted) {
-      return;
-    }
-    if (!body.success || body.data === null) {
-      setCategories([]);
-      setLoadError(body.error?.message ?? "全体図を取得できませんでした");
-      return;
-    }
-    setLoadError(null);
-    setCategories(body.data);
-  } catch (error) {
-    if (signal.aborted || isAbortError(error)) {
-      return;
-    }
-    setCategories([]);
-    setLoadError(error instanceof SyntaxError ? "応答を読めませんでした" : "通信に失敗しました");
-  }
-}
-
-function isAbortError(error: unknown): boolean {
-  return error instanceof DOMException && error.name === "AbortError";
 }

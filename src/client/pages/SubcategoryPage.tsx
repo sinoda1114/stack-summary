@@ -2,6 +2,7 @@ import { Stack, Table, Text, Title } from "@mantine/core";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 import { TECH_STATUS_LABELS, type TechStatus } from "../../shared/labels";
+import { requestJson } from "../api";
 
 type Comparison = {
   name: string;
@@ -19,20 +20,34 @@ type Comparison = {
 export function SubcategoryPage() {
   const params = useParams();
   const [comparison, setComparison] = useState<Comparison | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     if (params.id === undefined) {
       return;
     }
-    void fetch(`/api/subcategories/${params.id}`)
-      .then((response) => response.json())
-      .then((body: { success: boolean; data: Comparison | null }) => {
-        if (body.success && body.data !== null) {
-          setComparison(body.data);
-        }
-      });
+    const subcategoryId = params.id;
+    let current = true;
+    void requestJson<Comparison>(`/api/subcategories/${subcategoryId}`).then((result) => {
+      if (!current) {
+        return;
+      }
+      if (!result.success || result.data === null) {
+        setComparison(null);
+        setNotice(result.error?.message ?? "小分類を取得できませんでした");
+        return;
+      }
+      setNotice(null);
+      setComparison(result.data);
+    });
+    return () => {
+      current = false;
+    };
   }, [params.id]);
 
+  if (notice !== null && comparison === null) {
+    return <Text p="md">{notice}</Text>;
+  }
   if (comparison === null) {
     return <Text p="md">読み込み中</Text>;
   }

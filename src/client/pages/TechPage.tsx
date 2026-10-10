@@ -2,6 +2,7 @@ import { Button, Select, Stack, Text, Textarea, Title } from "@mantine/core";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router";
 import { isTechStatus, TECH_STATUS_LABELS, type TechStatus } from "../../shared/labels";
+import { requestJson } from "../api";
 import { useIsMobile } from "../hooks/useIsMobile";
 
 type TechDetail = {
@@ -33,7 +34,25 @@ export function TechPage() {
       return;
     }
     const techId = params.id;
-    void loadTech(techId, setDetail, setStatus, setReason, setNotice);
+    let current = true;
+    void requestJson<TechDetail>(`/api/techs/${techId}`).then((result) => {
+      if (!current) {
+        return;
+      }
+      const data = result.success ? result.data : null;
+      if (data === null || !isTechStatus(data.status)) {
+        setDetail(null);
+        setNotice(result.error?.message ?? "技術を取得できませんでした");
+        return;
+      }
+      setNotice(null);
+      setDetail(data);
+      setStatus(data.status);
+      setReason(data.reason ?? "");
+    });
+    return () => {
+      current = false;
+    };
   }, [params.id]);
 
   if (notice !== null && detail === null) {
@@ -49,26 +68,17 @@ export function TechPage() {
     if (params.id === undefined) {
       return;
     }
-    try {
-      const response = await fetch(`/api/techs/${params.id}`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ status: selectedStatus, reason }),
-      });
-      const body = (await response.json()) as {
-        success: boolean;
-        data: TechDetail | null;
-        error: { message: string } | null;
-      };
-      if (!body.success || body.data === null) {
-        setNotice(body.error?.message ?? "保存に失敗しました");
-        return;
-      }
-      setNotice(null);
-      setDetail(body.data);
-    } catch (error) {
-      setNotice(readFailure(error, "保存に失敗しました"));
+    const result = await requestJson<TechDetail>(`/api/techs/${params.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ status: selectedStatus, reason }),
+    });
+    if (!result.success || result.data === null) {
+      setNotice(result.error?.message ?? "保存に失敗しました");
+      return;
     }
+    setNotice(null);
+    setDetail(result.data);
   }
 
   return (
@@ -109,38 +119,3 @@ export function TechPage() {
   );
 }
 
-async function loadTech(
-  techId: string,
-  setDetail: (detail: TechDetail | null) => void,
-  setStatus: (status: TechStatus) => void,
-  setReason: (reason: string) => void,
-  setNotice: (notice: string | null) => void,
-): Promise<void> {
-  try {
-    const response = await fetch(`/api/techs/${techId}`);
-    const body = (await response.json()) as {
-      success: boolean;
-      data: TechDetail | null;
-      error: { message: string } | null;
-    };
-    if (!body.success || body.data === null || !isTechStatus(body.data.status)) {
-      setDetail(null);
-      setNotice(body.error?.message ?? "技術を取得できませんでした");
-      return;
-    }
-    setNotice(null);
-    setDetail(body.data);
-    setStatus(body.data.status);
-    setReason(body.data.reason ?? "");
-  } catch (error) {
-    setDetail(null);
-    setNotice(readFailure(error));
-  }
-}
-
-function readFailure(error: unknown, fallback = "通信に失敗しました"): string {
-  if (error instanceof SyntaxError) {
-    return "応答を読めませんでした";
-  }
-  return error instanceof TypeError ? "通信に失敗しました" : fallback;
-}
