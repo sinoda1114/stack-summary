@@ -10,7 +10,7 @@ export function MemoText(props: { text: string }) {
     }
     const href = match[0].replace(/[),.;]+$/u, "");
     parts.push({ text: href, href });
-    last = index + match[0].length;
+    last = index + href.length;
   }
   if (last < props.text.length) {
     parts.push({ text: props.text.slice(last), href: null });

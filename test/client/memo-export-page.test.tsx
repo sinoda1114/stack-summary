@@ -62,11 +62,16 @@ describe("メモと書き出しの画面", () => {
     expect(screen.getByRole("button", { name: "Markdown" })).toBeTruthy();
 
     render(
-      <MemoText text="見る https://example.com/a. と javascript:alert(1)" />,
+      <MemoText text="見る https://example.com/a. と https://example.com/b),; javascript:alert(1)" />,
     );
     const link = screen.getByRole("link", { name: "https://example.com/a" });
+    const tail = screen.getByRole("link", { name: "https://example.com/b" });
     expect(link.getAttribute("href")).toBe("https://example.com/a");
+    expect(tail.getAttribute("href")).toBe("https://example.com/b");
     expect(link.getAttribute("rel")).toBe("noopener noreferrer");
+    expect(link.parentElement?.textContent).toBe(
+      "見る https://example.com/a. と https://example.com/b),; javascript:alert(1)",
+    );
     expect(screen.queryByRole("link", { name: /javascript/ })).toBeNull();
   });
 
