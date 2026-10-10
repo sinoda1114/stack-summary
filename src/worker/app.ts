@@ -6,6 +6,7 @@ import { originCheck } from "./middleware/origin-check";
 import { registerCategoryRoutes } from "./routes/categories";
 import { registerExportRoutes } from "./routes/export";
 import { registerImportRoutes } from "./routes/imports";
+import { registerInquiryRoutes } from "./routes/inquiries";
 import { registerInboxRoutes } from "./routes/inbox";
 import { registerMemoRoutes } from "./routes/memos";
 import { registerMentionRoutes } from "./routes/mentions";
@@ -32,6 +33,7 @@ app.get("/api/health", (c) => {
 registerCategoryRoutes(app);
 registerExportRoutes(app);
 registerImportRoutes(app);
+registerInquiryRoutes(app);
 registerInboxRoutes(app);
 registerMemoRoutes(app);
 registerMentionRoutes(app);

@@ -5,7 +5,7 @@ ACCESS_AUD=replace-me
 OWNER_EMAIL=owner@example.com
 APP_ORIGIN=http://localhost:8787
 GEMINI_API_KEY=replace-me
-# 仮。技術名の抽出と分類。
+# 仮。技術名の抽出、分類、メモと技術への問い合わせ。
 GEMINI_MODEL_LIGHT=gemini-flash-lite-latest
 # 仮。メモの分割（推論が要る）。
 GEMINI_MODEL_HEAVY=gemini-flash-latest
