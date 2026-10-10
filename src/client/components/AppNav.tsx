@@ -1,14 +1,78 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { useMediaQuery } from "@mantine/hooks";
 import { Link, NavLink } from "react-router";
-import { useIsMobile } from "../hooks/useIsMobile";
+
+const NARROW_NAV_QUERY = "(max-width: 768px)";
 
 type NavIconName = "grid" | "relations" | "import" | "memo" | "inbox" | "taxonomy" | "export";
 
 export function AppNav() {
-  const mobile = useIsMobile();
+  const mobile = useMediaQuery(NARROW_NAV_QUERY, false, { getInitialValueInEffect: false });
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!mobile) {
+      setOpen(false);
+    }
+  }, [mobile]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  function close(): void {
+    setOpen(false);
+  }
+
+  const body = <NavBody mobile={mobile} onSelect={mobile ? close : undefined} />;
+
+  if (!mobile) {
+    return <aside className="sidebar">{body}</aside>;
+  }
+
   return (
-    <aside className="sidebar">
-      <Link to="/" className="wordmark">
+    <>
+      <header className="mobile-bar">
+        <button
+          type="button"
+          className="nav-menu"
+          aria-label="メニューを開く"
+          aria-expanded={open}
+          aria-controls={open ? "app-nav-drawer" : undefined}
+          onClick={() => {
+            setOpen(true);
+          }}
+        >
+          <span aria-hidden="true">☰</span>
+        </button>
+      </header>
+      {open ? (
+        <>
+          <button type="button" className="drawer-scrim" aria-label="メニューを閉じる" onClick={close} />
+          <aside id="app-nav-drawer" className="sidebar sidebar-drawer">
+            {body}
+          </aside>
+        </>
+      ) : null}
+    </>
+  );
+}
+
+function NavBody(props: { mobile: boolean; onSelect?: () => void }) {
+  return (
+    <>
+      <Link to="/" className="wordmark" onClick={props.onSelect}>
         <span className="mark">S</span>
         <span>
           <b>STACK</b>
@@ -16,25 +80,25 @@ export function AppNav() {
         </span>
       </Link>
       <nav className="nav-links" aria-label="画面">
-        <Item to="/" end icon="grid" label="全体図" />
-        <Item to="/relations" icon="relations" label="関係" />
-        <Item to="/imports" icon="import" label="取り込み" />
-        <Item to="/memos" icon="memo" label="メモ" />
-        {mobile ? null : (
+        <Item to="/" end icon="grid" label="全体図" onSelect={props.onSelect} />
+        <Item to="/relations" icon="relations" label="関係" onSelect={props.onSelect} />
+        <Item to="/imports" icon="import" label="取り込み" onSelect={props.onSelect} />
+        <Item to="/memos" icon="memo" label="メモ" onSelect={props.onSelect} />
+        {props.mobile ? null : (
           <>
-            <Item to="/inbox" icon="inbox" label="受け箱" />
-            <Item to="/taxonomy" icon="taxonomy" label="分類" />
-            <Item to="/export" icon="export" label="書き出し" />
+            <Item to="/inbox" icon="inbox" label="受け箱" onSelect={props.onSelect} />
+            <Item to="/taxonomy" icon="taxonomy" label="分類" onSelect={props.onSelect} />
+            <Item to="/export" icon="export" label="書き出し" onSelect={props.onSelect} />
           </>
         )}
       </nav>
-    </aside>
+    </>
   );
 }
 
-function Item(props: { to: string; end?: boolean; icon: NavIconName; label: string }) {
+function Item(props: { to: string; end?: boolean; icon: NavIconName; label: string; onSelect?: () => void }) {
   return (
-    <NavLink to={props.to} end={props.end} className="nav-link">
+    <NavLink to={props.to} end={props.end} className="nav-link" onClick={props.onSelect}>
       <NavIcon name={props.icon} />
       {props.label}
     </NavLink>
