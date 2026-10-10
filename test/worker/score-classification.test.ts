@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { parseEvalSamples } from "../../src/worker/ai/eval-file";
+import {
+  parseEvalSamples,
+  type EvalSample,
+} from "../../src/eval/eval-file";
 import {
   PROVISIONAL_CATEGORY_TARGET,
   PROVISIONAL_SUBCATEGORY_TARGET,
   scoreClassification,
-  type EvalSample,
-} from "../../src/worker/ai/score-classification";
+} from "../../src/eval/score-classification";
 import {
   formatEvalReport,
   missingGoldenMessage,

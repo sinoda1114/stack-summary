@@ -2,7 +2,7 @@ import {
   PROVISIONAL_CATEGORY_TARGET,
   PROVISIONAL_SUBCATEGORY_TARGET,
   type ClassificationScore,
-} from "../src/worker/ai/score-classification.ts";
+} from "../src/eval/score-classification.ts";
 
 export function formatEvalReport(score: ClassificationScore): string {
   const verdict = score.meetsProvisionalTargets
@@ -11,8 +11,8 @@ export function formatEvalReport(score: ClassificationScore): string {
   return [
     "分類の正答率（仮）",
     `採点 ${score.scored} 件、未採点 ${score.unscored} 件`,
-    `大分類 ${percent(score.categoryRate)}（仮の目安 ${percent(score.provisionalCategoryTarget)}）`,
-    `小分類 ${percent(score.subcategoryRate)}（仮の目安 ${percent(score.provisionalSubcategoryTarget)}）`,
+    `大分類 ${percent(score.categoryRate)}（仮の目安 ${percent(PROVISIONAL_CATEGORY_TARGET)}）`,
+    `小分類 ${percent(score.subcategoryRate)}（仮の目安 ${percent(PROVISIONAL_SUBCATEGORY_TARGET)}）`,
     verdict,
   ].join("\n");
 }

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { parseEvalSamples } from "../src/worker/ai/eval-file.ts";
-import { scoreClassification } from "../src/worker/ai/score-classification.ts";
+import { parseEvalSamples } from "../src/eval/eval-file.ts";
+import { scoreClassification } from "../src/eval/score-classification.ts";
 import { formatEvalReport, missingGoldenMessage } from "./eval-report.ts";
 
 const path = resolve("eval/golden.local.json");

@@ -1,20 +1,7 @@
+import type { EvalScoreInput } from "./eval-file";
+
 export const PROVISIONAL_CATEGORY_TARGET = 0.9;
 export const PROVISIONAL_SUBCATEGORY_TARGET = 0.8;
-
-export type EvalLabel = {
-  categoryId: string | null;
-  subcategoryId: string | null;
-};
-
-export type EvalSample = {
-  name: string;
-  context: string;
-  expected: {
-    categoryId: string;
-    subcategoryId: string | null;
-  };
-  predicted?: EvalLabel;
-};
 
 export type ClassificationScore = {
   scored: number;
@@ -23,13 +10,11 @@ export type ClassificationScore = {
   subcategoryHits: number;
   categoryRate: number;
   subcategoryRate: number;
-  provisionalCategoryTarget: number;
-  provisionalSubcategoryTarget: number;
   meetsProvisionalTargets: boolean;
 };
 
 export function scoreClassification(
-  samples: readonly EvalSample[],
+  samples: readonly EvalScoreInput[],
 ): ClassificationScore {
   let categoryHits = 0;
   let subcategoryHits = 0;
@@ -57,8 +42,6 @@ export function scoreClassification(
     subcategoryHits,
     categoryRate,
     subcategoryRate,
-    provisionalCategoryTarget: PROVISIONAL_CATEGORY_TARGET,
-    provisionalSubcategoryTarget: PROVISIONAL_SUBCATEGORY_TARGET,
     meetsProvisionalTargets:
       scored > 0 &&
       categoryRate >= PROVISIONAL_CATEGORY_TARGET &&

@@ -1,24 +1,26 @@
 import { z } from "zod";
-import type { EvalSample } from "./score-classification";
 
 const labelSchema = z.object({
   categoryId: z.string().nullable(),
   subcategoryId: z.string().nullable(),
 });
 
-export const evalFileSchema = z.object({
-  samples: z.array(
-    z.object({
-      name: z.string(),
-      context: z.string(),
-      expected: z.object({
-        categoryId: z.string(),
-        subcategoryId: z.string().nullable(),
-      }),
-      predicted: labelSchema.optional(),
-    }),
-  ),
+const sampleSchema = z.object({
+  name: z.string(),
+  context: z.string(),
+  expected: z.object({
+    categoryId: z.string(),
+    subcategoryId: z.string().nullable(),
+  }),
+  predicted: labelSchema.optional(),
 });
+
+export const evalFileSchema = z.object({
+  samples: z.array(sampleSchema),
+});
+
+export type EvalSample = z.infer<typeof sampleSchema>;
+export type EvalScoreInput = Pick<EvalSample, "expected" | "predicted">;
 
 export type EvalParseResult =
   | { ok: true; samples: EvalSample[] }
