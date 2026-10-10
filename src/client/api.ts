@@ -18,6 +18,14 @@ export type ImportItem = {
   updatedAt: string;
 };
 
+export function askChat(question: string): Promise<ApiResult<{ answer: string }>> {
+  return requestJson<{ answer: string }>("/api/inquiries", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ question }),
+  });
+}
+
 export async function listImports(): Promise<ApiResult<ImportItem[]>> {
   return requestJson<ImportItem[]>("/api/imports");
 }

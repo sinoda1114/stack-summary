@@ -138,6 +138,29 @@ body {
   letter-spacing: 0.08em;
 }
 
+.chat-log {
+  overflow: auto;
+  max-height: 16rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.chat-ask {
+  align-self: flex-end;
+  max-width: 92%;
+  white-space: pre-wrap;
+  padding: 12px 14px;
+  background: var(--mantine-color-body);
+  border: 1px solid var(--mantine-color-default-border);
+}
+
+.chat-answer {
+  align-self: flex-start;
+  max-width: 92%;
+  white-space: pre-wrap;
+}
+
 @media (max-width: 767px) {
   .sheet {
     padding: 24px 16px 64px;
