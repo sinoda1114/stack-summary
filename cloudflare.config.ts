@@ -34,6 +34,7 @@ export default defineConfig({
         exportName: "ImportWorkflow",
       }),
       ASSETS: bindings.assets(),
+      AI: bindings.ai(),
     },
     exports: {
       ImportWorkflow: exports.workflow({
