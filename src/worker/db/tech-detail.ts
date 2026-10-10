@@ -1,5 +1,7 @@
-import type { TechStatus } from "../../shared/labels";
+import { isTechStatus, type TechStatus } from "../../shared/labels";
 import { upsertTag } from "./tags";
+
+export { isTechStatus };
 
 export type TechDetail = {
   id: string;
@@ -21,12 +23,6 @@ export type TechDetail = {
     relation: "subject" | "comparison";
   }[];
 };
-
-const STATUSES = ["adopted", "want_to_try", "watching", "rejected", "unrated"] as const;
-
-export function isTechStatus(value: string): value is TechStatus {
-  return STATUSES.some((status) => status === value);
-}
 
 export async function loadTechDetail(
   db: D1Database,
