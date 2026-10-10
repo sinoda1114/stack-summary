@@ -25,9 +25,11 @@ export function toClassificationProposal(
   output: ClassifyOutput,
 ): ClassificationProposal {
   const subcategories: SubcategoryProposal[] = [];
+  let droppedSubcategories = 0;
   for (const item of output.subcategories) {
     if (item.kind === "existing") {
       if (item.subcategoryId === null || item.subcategoryId.length === 0) {
+        droppedSubcategories += 1;
         continue;
       }
       subcategories.push({
@@ -37,6 +39,7 @@ export function toClassificationProposal(
       continue;
     }
     if (item.name === null) {
+      droppedSubcategories += 1;
       continue;
     }
     subcategories.push({ kind: "new", name: item.name });
@@ -44,6 +47,7 @@ export function toClassificationProposal(
   return {
     categoryId: output.categoryId,
     subcategories,
+    droppedSubcategories,
     confidence: output.confidence,
   };
 }

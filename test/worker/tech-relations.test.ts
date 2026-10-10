@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
+import { mergeTech } from "../../src/worker/db/merge-tech";
 import { upsertTag } from "../../src/worker/db/tags";
 import {
   insertTechRelation,
@@ -66,6 +67,44 @@ describe("技術の関係とタグの名寄せ", () => {
     expect(names.results).toEqual([
       { name: "Edge", kind: "topic" },
       { name: "Edge", kind: "vendor" },
+    ]);
+    await env.DB.prepare(
+      "INSERT INTO tags (id, name, kind) VALUES ('tag-cf', 'Cloudflare', 'vendor')",
+    ).run();
+    expect(await upsertTag(env.DB, { name: "cloudflare", kind: "vendor" })).toBe("tag-cf");
+  });
+
+  it("技術の統合は関係を残す側へ移し、自分自身と既存の組は捨てる", async () => {
+    const hono = await insertTech("Hono");
+    const next = await insertTech("Hono 本体");
+    const workers = await insertTech("Cloudflare Workers");
+    expect(
+      await insertTechRelation(env.DB, {
+        fromTechId: hono,
+        toTechId: workers,
+        kind: "runs_on",
+      }),
+    ).toBe(true);
+    expect(
+      await insertTechRelation(env.DB, {
+        fromTechId: hono,
+        toTechId: next,
+        kind: "related",
+      }),
+    ).toBe(true);
+    expect(
+      await insertTechRelation(env.DB, {
+        fromTechId: next,
+        toTechId: workers,
+        kind: "depends_on",
+      }),
+    ).toBe(true);
+    expect(await mergeTech(env.DB, { sourceId: hono, intoId: next, now: NOW })).toEqual({
+      ok: true,
+    });
+    const graph = await loadRelationGraph(env.DB);
+    expect(graph.edges).toEqual([
+      { fromId: next, toId: workers, kind: "depends_on" },
     ]);
   });
 });

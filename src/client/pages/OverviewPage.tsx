@@ -6,6 +6,13 @@ import { isAbortError, requestJson } from "../api";
 import { TechBadge } from "../components/TechBadge";
 import { useIsMobile } from "../hooks/useIsMobile";
 
+type OverviewTech = {
+  id: string;
+  name: string;
+  status: TechStatus;
+  memoCount: number;
+};
+
 type OverviewCategory = {
   id: string;
   name: string;
@@ -13,8 +20,9 @@ type OverviewCategory = {
   subcategories: {
     id: string;
     name: string;
-    techs: { id: string; name: string; status: TechStatus; memoCount: number }[];
+    techs: OverviewTech[];
   }[];
+  ungrouped?: OverviewTech[];
 };
 
 export function OverviewPage() {
@@ -104,11 +112,13 @@ export function OverviewPage() {
 }
 
 function CategoryBody(props: { category: OverviewCategory }) {
+  const ungrouped = props.category.ungrouped ?? [];
+  const showNames = props.category.subcategoryCount !== 1 || ungrouped.length > 0;
   return (
     <>
       {props.category.subcategories.map((subcategory) => (
         <Stack key={subcategory.id} gap="xs" className="subcategory">
-          {subcategory.name.length > 0 && showsSubcategoryName(props.category) ? (
+          {showNames ? (
             <Text className="subhead">
               <Link to={`/subcategories/${subcategory.id}`}>{subcategory.name}</Link>
             </Text>
@@ -120,10 +130,16 @@ function CategoryBody(props: { category: OverviewCategory }) {
           </Group>
         </Stack>
       ))}
+      {ungrouped.length === 0 ? null : (
+        <Stack gap="xs" className="subcategory">
+          <Text className="subhead">小分類なし</Text>
+          <Group gap="xs">
+            {ungrouped.map((tech) => (
+              <TechBadge key={tech.id} id={tech.id} name={tech.name} status={tech.status} />
+            ))}
+          </Group>
+        </Stack>
+      )}
     </>
   );
-}
-
-function showsSubcategoryName(category: OverviewCategory): boolean {
-  return category.subcategoryCount !== 1;
 }

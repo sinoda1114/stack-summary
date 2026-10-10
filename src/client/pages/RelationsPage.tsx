@@ -68,13 +68,12 @@ function RelationMap(props: { graph: RelationGraph }) {
   );
 
   return (
-    <div className="section-card" style={{ position: "relative", height }}>
+    <div className="section-card">
       <svg
-        width={width}
-        height={height}
+        viewBox={`0 0 ${width} ${height}`}
         role="img"
         aria-label="技術の関係"
-        style={{ display: "block", maxWidth: "100%" }}
+        style={{ display: "block", width: "100%", height: "auto" }}
       >
         <defs>
           <marker
@@ -114,29 +113,26 @@ function RelationMap(props: { graph: RelationGraph }) {
             </g>
           );
         })}
+        {props.graph.nodes.map((node) => {
+          const point = points.get(node.id);
+          if (point === undefined) {
+            return null;
+          }
+          return (
+            <Link key={node.id} to={`/techs/${node.id}`}>
+              <text
+                x={point.x}
+                y={point.y}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fontSize="14"
+              >
+                {node.name}
+              </text>
+            </Link>
+          );
+        })}
       </svg>
-      {props.graph.nodes.map((node) => {
-        const point = points.get(node.id);
-        if (point === undefined) {
-          return null;
-        }
-        return (
-          <Link
-            key={node.id}
-            to={`/techs/${node.id}`}
-            style={{
-              position: "absolute",
-              left: point.x,
-              top: point.y,
-              transform: "translate(-50%, -50%)",
-              background: "var(--mantine-color-body)",
-              padding: "2px 6px",
-            }}
-          >
-            {node.name}
-          </Link>
-        );
-      })}
     </div>
   );
 }

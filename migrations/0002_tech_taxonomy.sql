@@ -35,19 +35,22 @@ CREATE TABLE tech_relations (
 
 CREATE INDEX idx_tech_relations_to ON tech_relations (to_tech_id);
 
-CREATE TRIGGER tech_relations_no_reverse
-BEFORE INSERT ON tech_relations
-FOR EACH ROW
-WHEN EXISTS (
-  SELECT 1 FROM tech_relations
-  WHERE from_tech_id = NEW.to_tech_id
-    AND to_tech_id = NEW.from_tech_id
-)
-BEGIN
-  SELECT RAISE(ABORT, 'tech relation pair exists');
-END;
+CREATE UNIQUE INDEX idx_tech_relations_pair
+  ON tech_relations (
+    MIN(from_tech_id, to_tech_id),
+    MAX(from_tech_id, to_tech_id)
+  );
 
--- タグの名寄せキー。既存行はアプリが次に書くとき埋める。NULL は一意制約で衝突しない。
+-- タグの名寄せキー。同じ kind で正規化が衝突する行は、1件だけ埋める。
 ALTER TABLE tags ADD COLUMN name_key TEXT;
+
+UPDATE tags
+SET name_key = lower(trim(name))
+WHERE name_key IS NULL
+  AND id = (
+    SELECT MIN(other.id) FROM tags AS other
+    WHERE other.kind = tags.kind
+      AND lower(trim(other.name)) = lower(trim(tags.name))
+  );
 
 CREATE UNIQUE INDEX idx_tags_kind_name_key ON tags (kind, name_key);

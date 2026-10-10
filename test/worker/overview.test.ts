@@ -68,6 +68,23 @@ describe("全体図と技術詳細", () => {
     expect(filtered.map((category) => category.id)).toEqual(["backend"]);
     expect(filtered[0]?.subcategoryCount).toBe(2);
     expect(filtered[0]?.subcategories.map((subcategory) => subcategory.name)).toEqual(["フレームワーク"]);
+    expect(filtered[0]?.ungrouped).toEqual([]);
+  });
+
+  it("小分類の無い技術は、空名の小分類ではなく ungrouped に入る", async () => {
+    await insertSubcategory("backend", "フレームワーク");
+    const id = crypto.randomUUID();
+    await env.DB.prepare(
+      `INSERT INTO techs (
+         id, name, name_key, category_id, status, status_by, created_at, updated_at
+       ) VALUES (?, '素の技術', 'plain', 'backend', 'unrated', 'model', ?, ?)`,
+    )
+      .bind(id, NOW, NOW)
+      .run();
+    const overview = await loadOverview(env.DB, { status: null, tag: null, q: null });
+    const backend = overview.find((category) => category.id === "backend");
+    expect(backend?.subcategories.every((subcategory) => subcategory.name.length > 0)).toBe(true);
+    expect(backend?.ungrouped.map((tech) => tech.name)).toEqual(["素の技術"]);
   });
 
   it("関連メモは日付の降順で、日付が空なら後にする", async () => {

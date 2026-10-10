@@ -38,27 +38,29 @@ export async function insertTechRelation(
   if (input.fromTechId === input.toTechId) {
     return false;
   }
-  if (await relationPairExists(db, input.fromTechId, input.toTechId)) {
+  try {
+    await db
+      .prepare(
+        `INSERT INTO tech_relations (from_tech_id, to_tech_id, kind)
+         VALUES (?, ?, ?)`,
+      )
+      .bind(input.fromTechId, input.toTechId, input.kind)
+      .run();
+    return true;
+  } catch (error) {
+    if (isConstraint(error)) {
+      return false;
+    }
+    throw error;
+  }
+}
+
+function isConstraint(error: unknown): boolean {
+  if (!(error instanceof Error)) {
     return false;
   }
-  const techs = await db
-    .prepare(
-      `SELECT id FROM techs WHERE id = ?1 OR id = ?2`,
-    )
-    .bind(input.fromTechId, input.toTechId)
-    .all<{ id: string }>();
-  const ids = new Set(techs.results.map((tech) => tech.id));
-  if (!ids.has(input.fromTechId) || !ids.has(input.toTechId)) {
-    return false;
-  }
-  await db
-    .prepare(
-      `INSERT INTO tech_relations (from_tech_id, to_tech_id, kind)
-       VALUES (?, ?, ?)`,
-    )
-    .bind(input.fromTechId, input.toTechId, input.kind)
-    .run();
-  return true;
+  const message = error.message.toLowerCase();
+  return message.includes("unique") || message.includes("constraint");
 }
 
 export async function loadRelationGraph(db: D1Database): Promise<{

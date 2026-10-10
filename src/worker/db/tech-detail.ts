@@ -183,12 +183,11 @@ export async function patchTech(
       .prepare(`UPDATE techs SET ${assignments.join(", ")} WHERE id = ?`)
       .bind(...values, id),
   ];
-  if (patch.categoryId !== undefined || patch.subcategoryIds !== undefined) {
+  if (patch.subcategoryIds !== undefined) {
     statements.push(
       db.prepare("DELETE FROM tech_subcategories WHERE tech_id = ?").bind(id),
     );
-    const subcategoryIds = patch.subcategoryIds ?? [];
-    for (const subcategoryId of subcategoryIds) {
+    for (const subcategoryId of patch.subcategoryIds) {
       statements.push(
         db
           .prepare(
@@ -198,6 +197,20 @@ export async function patchTech(
           .bind(id, subcategoryId),
       );
     }
+  } else if (patch.categoryId !== undefined) {
+    statements.push(
+      nextCategory === null
+        ? db.prepare("DELETE FROM tech_subcategories WHERE tech_id = ?").bind(id)
+        : db
+            .prepare(
+              `DELETE FROM tech_subcategories
+               WHERE tech_id = ?
+                 AND subcategory_id IN (
+                   SELECT id FROM subcategories WHERE category_id <> ?
+                 )`,
+            )
+            .bind(id, nextCategory),
+    );
   }
   if (patch.tags !== undefined) {
     const tagIds: string[] = [];

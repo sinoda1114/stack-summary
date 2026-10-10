@@ -16,6 +16,7 @@ import {
 import {
   classifySchema,
   classifySystemPrompt,
+  toClassificationProposal,
 } from "../../src/worker/ai/prompts/classify.v1";
 import { extractSystemPrompt, extractTechSchema } from "../../src/worker/ai/prompts/extract.v1";
 import { splitMemoSchema, splitSystemPrompt } from "../../src/worker/ai/prompts/split.v1";
@@ -260,6 +261,16 @@ describe("Gemini の指示とモック", () => {
           subcategories: [{ kind: "existing", subcategoryId: "missing" }],
           confidence: 0.9,
         },
+        input,
+      ),
+    ).toEqual({ kind: "unclassified" });
+    expect(
+      acceptClassification(
+        toClassificationProposal({
+          categoryId: "backend",
+          subcategories: [{ kind: "existing", subcategoryId: null, name: null }],
+          confidence: 0.4,
+        }),
         input,
       ),
     ).toEqual({ kind: "unclassified" });

@@ -19,6 +19,7 @@ export type OverviewCategory = {
   name: string;
   subcategoryCount: number;
   subcategories: OverviewSubcategory[];
+  ungrouped: OverviewTech[];
 };
 
 export type OverviewFilter = {
@@ -111,14 +112,7 @@ export async function loadOverview(
         techs: techsBySubcategory.get(subcategory.id) ?? [],
       }))
       .filter((subcategory) => !filtering || subcategory.techs.length > 0);
-    if (loose.length > 0) {
-      groups.push({
-        id: `category:${category.id}`,
-        name: "",
-        techs: loose,
-      });
-    }
-    if (filtering && groups.length === 0) {
+    if (filtering && groups.length === 0 && loose.length === 0) {
       return [];
     }
     return [
@@ -127,6 +121,7 @@ export async function loadOverview(
         name: category.name,
         subcategoryCount: owned.length,
         subcategories: groups,
+        ungrouped: loose,
       },
     ];
   });

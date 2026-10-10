@@ -16,6 +16,7 @@ export type SubcategoryProposal =
 export type ClassificationProposal = {
   categoryId: string | null;
   subcategories: SubcategoryProposal[];
+  droppedSubcategories?: number;
   confidence: number;
 };
 
@@ -76,7 +77,9 @@ export function acceptClassification(
     seen.add(key);
     subcategories.push(accepted);
   }
-  if (proposal.subcategories.length > 0 && subcategories.length === 0) {
+  const offered =
+    proposal.subcategories.length + (proposal.droppedSubcategories ?? 0);
+  if (offered > 0 && subcategories.length === 0) {
     return { kind: "unclassified" };
   }
   return { kind: "classified", categoryId, subcategories };

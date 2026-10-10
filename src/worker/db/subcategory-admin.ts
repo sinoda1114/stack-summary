@@ -68,7 +68,7 @@ export async function createUserSubcategory(
 export async function patchSubcategory(
   db: D1Database,
   id: string,
-  patch: { name?: string; categoryId?: string; reviewed?: boolean },
+  patch: { name?: string; categoryId?: string; reviewed?: boolean; now?: string },
 ): Promise<{ ok: true } | { ok: false; code: "not_found" | "invalid" | "name_taken" }> {
   const current = await db
     .prepare("SELECT id, category_id, name FROM subcategories WHERE id = ?")
@@ -112,6 +112,9 @@ export async function patchSubcategory(
     }
     throw error;
   }
+  if (categoryId !== current.category_id) {
+    await moveSubcategoryTechs(db, id, categoryId, patch.now ?? new Date().toISOString());
+  }
   return { ok: true };
 }
 
@@ -133,90 +136,75 @@ export async function mergeSubcategory(
   if (into === null || source === null) {
     return { ok: false, code: "not_found" };
   }
-  const affected = await db
-    .prepare("SELECT tech_id FROM tech_subcategories WHERE subcategory_id = ?")
-    .bind(input.sourceId)
-    .all<{ tech_id: string }>();
-  const techIds = affected.results.map((row) => row.tech_id);
-  const statements = subcategoryMergeStatements(db, {
-    intoCategoryId: into.category_id,
-    techIds,
-    now: input.now,
-  });
-  if (techIds.length > 0) {
-    const marks = techIds.map(() => "?").join(", ");
-    const foreign = await db
+  await db.batch([
+    db
       .prepare(
-        `SELECT ts.tech_id, ts.subcategory_id
-         FROM tech_subcategories ts
-         JOIN subcategories s ON s.id = ts.subcategory_id
-         WHERE ts.tech_id IN (${marks})
-           AND s.category_id <> ?`,
+        `UPDATE techs
+         SET category_id = ?, classified_by = 'user', updated_at = ?
+         WHERE id IN (
+           SELECT tech_id FROM tech_subcategories WHERE subcategory_id = ?
+         )`,
       )
-      .bind(...techIds, into.category_id)
-      .all<{ tech_id: string; subcategory_id: string }>();
-    for (const row of foreign.results) {
-      statements.push(
-        db
-          .prepare(
-            `DELETE FROM tech_subcategories
-             WHERE tech_id = ? AND subcategory_id = ?`,
-          )
-          .bind(row.tech_id, row.subcategory_id),
-      );
-    }
-  }
-  const already = await db
-    .prepare("SELECT tech_id FROM tech_subcategories WHERE subcategory_id = ?")
-    .bind(input.intoId)
-    .all<{ tech_id: string }>();
-  const intoIds = new Set(already.results.map((row) => row.tech_id));
-  for (const techId of techIds) {
-    if (!intoIds.has(techId)) {
-      continue;
-    }
-    statements.push(
-      db
-        .prepare(
-          `DELETE FROM tech_subcategories
-           WHERE tech_id = ? AND subcategory_id = ?`,
-        )
-        .bind(techId, input.sourceId),
-    );
-  }
-  statements.push(
+      .bind(into.category_id, input.now, input.sourceId),
+    db
+      .prepare(
+        `DELETE FROM tech_subcategories
+         WHERE tech_id IN (
+           SELECT tech_id FROM tech_subcategories WHERE subcategory_id = ?1
+         )
+           AND subcategory_id IN (
+             SELECT id FROM subcategories
+             WHERE category_id <> ?2 AND id <> ?1
+           )`,
+      )
+      .bind(input.sourceId, into.category_id),
+    db
+      .prepare(
+        `DELETE FROM tech_subcategories
+         WHERE subcategory_id = ?1
+           AND tech_id IN (
+             SELECT tech_id FROM tech_subcategories WHERE subcategory_id = ?2
+           )`,
+      )
+      .bind(input.sourceId, input.intoId),
     db
       .prepare(
         "UPDATE tech_subcategories SET subcategory_id = ? WHERE subcategory_id = ?",
       )
       .bind(input.intoId, input.sourceId),
     db.prepare("DELETE FROM subcategories WHERE id = ?").bind(input.sourceId),
-  );
-  await db.batch(statements);
+  ]);
   return { ok: true };
 }
 
-function subcategoryMergeStatements(
+async function moveSubcategoryTechs(
   db: D1Database,
-  input: {
-    intoCategoryId: string;
-    techIds: readonly string[];
-    now: string;
-  },
-): D1PreparedStatement[] {
-  if (input.techIds.length === 0) {
-    return [];
-  }
-  const marks = input.techIds.map(() => "?").join(", ");
-  return [
+  subcategoryId: string,
+  categoryId: string,
+  now: string,
+): Promise<void> {
+  await db.batch([
     db
       .prepare(
         `UPDATE techs
          SET category_id = ?, classified_by = 'user', updated_at = ?
-         WHERE id IN (${marks})`,
+         WHERE id IN (
+           SELECT tech_id FROM tech_subcategories WHERE subcategory_id = ?
+         )`,
       )
-      .bind(input.intoCategoryId, input.now, ...input.techIds),
-  ];
+      .bind(categoryId, now, subcategoryId),
+    db
+      .prepare(
+        `DELETE FROM tech_subcategories
+         WHERE tech_id IN (
+           SELECT tech_id FROM tech_subcategories WHERE subcategory_id = ?1
+         )
+           AND subcategory_id IN (
+             SELECT id FROM subcategories WHERE category_id <> ?2
+           )`,
+      )
+      .bind(subcategoryId, categoryId),
+  ]);
 }
 
 function isUnique(error: unknown): boolean {

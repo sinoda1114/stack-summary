@@ -54,7 +54,10 @@ export function registerSubcategoryRoutes(app: Hono<{ Bindings: Env }>): void {
       }
       patch.reviewed = true;
     }
-    const updated = await patchSubcategory(c.env.DB, c.req.param("id"), patch);
+    const updated = await patchSubcategory(c.env.DB, c.req.param("id"), {
+      ...patch,
+      now: new Date().toISOString(),
+    });
     if (!updated.ok) {
       const status = updated.code === "name_taken" ? 409 : updated.code === "not_found" ? 404 : 400;
       return c.json(fail(updated.code, "小分類を更新できません"), status);

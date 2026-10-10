@@ -436,7 +436,7 @@ ON CONFLICT (category_id, name) DO NOTHING;
 | メソッド・パス | 内容 |
 | --- | --- |
 | `GET /api/health` | 認証済みなら `{ ok: true }`。JWT が無ければ 403。段階 1 で実装する |
-| `GET /api/overview?status=&tag=&q=` | 全体図。大分類 → 小分類 → 技術（`id` `name` `status` `memoCount`）。`q` は技術名、別名、理由。大分類は絞る前の小分類数 `subcategoryCount` を返す。一致しない小分類は省く。小分類が 1 つだけの大分類は、小分類名を返してよいが、画面は出さない（FR-27）。関連メモは `memo_date` の降順、空なら `created_at` の降順 |
+| `GET /api/overview?status=&tag=&q=` | 全体図。大分類 → 小分類 → 技術（`id` `name` `status` `memoCount`）。小分類の無い技術は `ungrouped`。`q` は技術名、別名、理由。大分類は絞る前の小分類数 `subcategoryCount` を返す。一致しない小分類は省く。小分類が 1 つだけで `ungrouped` が空の大分類は、小分類名を返してよいが、画面は出さない（FR-27）。関連メモは `memo_date` の降順、空なら `created_at` の降順 |
 | `GET /api/techs` | 技術の一覧（`id` `name` `status`）。統合先の候補はここから取る |
 | `GET /api/techs/:id` | 技術の詳細（別名・タグ・関連メモを新しい順、最終更新日） |
 | `PATCH /api/techs/:id` | 状態・理由・大分類・小分類・タグの更新。変えた項目の出所を `user` にする。大分類または小分類を変えたら `classified_by = 'user'`。小分類は、その技術の大分類に属するものだけ |

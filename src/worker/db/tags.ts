@@ -18,7 +18,7 @@ export async function upsertTag(
   if (key === null) {
     throw new Error("タグ名が空です");
   }
-  const existing = await findTag(db, input.kind, key, display);
+  const existing = await findTag(db, input.kind, key);
   if (existing !== null) {
     return existing;
   }
@@ -37,7 +37,7 @@ export async function upsertTag(
       throw error;
     }
   }
-  const raced = await findTag(db, input.kind, key, display);
+  const raced = await findTag(db, input.kind, key);
   if (raced === null) {
     throw new Error("タグを保存できませんでした");
   }
@@ -48,29 +48,34 @@ async function findTag(
   db: D1Database,
   kind: TagKind,
   key: string,
-  display: string,
 ): Promise<string | null> {
-  const byKey = await db
-    .prepare("SELECT id FROM tags WHERE kind = ? AND name_key = ?")
-    .bind(kind, key)
-    .first<{ id: string }>();
-  if (byKey !== null) {
-    return byKey.id;
-  }
-  const byName = await db
-    .prepare("SELECT id, name_key FROM tags WHERE kind = ? AND name = ?")
-    .bind(kind, display)
-    .first<{ id: string; name_key: string | null }>();
-  if (byName === null) {
+  const listed = await db
+    .prepare(
+      `SELECT id, name, name_key FROM tags
+       WHERE kind = ?
+       ORDER BY name_key IS NULL, name`,
+    )
+    .bind(kind)
+    .all<{ id: string; name: string; name_key: string | null }>();
+  const match = listed.results.find(
+    (row) => row.name_key === key || tagNameKey(row.name) === key,
+  );
+  if (match === undefined) {
     return null;
   }
-  if (byName.name_key === null) {
-    await db
-      .prepare("UPDATE tags SET name_key = ? WHERE id = ? AND name_key IS NULL")
-      .bind(key, byName.id)
-      .run();
+  if (match.name_key !== key) {
+    try {
+      await db
+        .prepare("UPDATE tags SET name_key = ? WHERE id = ? AND name_key IS NULL")
+        .bind(key, match.id)
+        .run();
+    } catch (error) {
+      if (!isUnique(error)) {
+        throw error;
+      }
+    }
   }
-  return byName.id;
+  return match.id;
 }
 
 function isUnique(error: unknown): boolean {
