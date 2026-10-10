@@ -1,7 +1,6 @@
 import { Stack, Table, Text, Title } from "@mantine/core";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
-import { requestJson } from "../api";
 import { TECH_STATUS_LABELS, type TechStatus } from "../../shared/labels";
 import { requestJson } from "../api";
 
