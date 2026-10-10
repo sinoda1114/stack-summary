@@ -28,28 +28,30 @@ export function ImportPage() {
   }
 
   return (
-    <Stack p="md">
+    <Stack gap="lg">
       <Title order={1}>取り込み</Title>
       {mobile ? (
         <Text>この幅では取り込みを出しません。</Text>
       ) : (
-        <Stack>
-          <Textarea
-            label="貼り付け"
-            value={text}
-            onChange={(event) => setText(event.currentTarget.value)}
-            minRows={8}
-          />
-          <TextInput
-            label="出典"
-            value={sourceLabel}
-            onChange={(event) => setSourceLabel(event.currentTarget.value)}
-          />
-          <Button onClick={() => void onSubmit()}>取り込む</Button>
-        </Stack>
+        <div className="section-card">
+          <Stack>
+            <Textarea
+              label="貼り付け"
+              value={text}
+              onChange={(event) => setText(event.currentTarget.value)}
+              minRows={8}
+            />
+            <TextInput
+              label="出典"
+              value={sourceLabel}
+              onChange={(event) => setSourceLabel(event.currentTarget.value)}
+            />
+            <Button onClick={() => void onSubmit()}>取り込む</Button>
+          </Stack>
+        </div>
       )}
-      {message === null ? null : <Text>{message}</Text>}
-      {listNotice === null ? null : <Text>{listNotice}</Text>}
+      {message === null ? null : <Text className="note">{message}</Text>}
+      {listNotice === null ? null : <Text className="note">{listNotice}</Text>}
       <ImportProgress rows={rows} />
     </Stack>
   );
