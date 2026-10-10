@@ -7,7 +7,8 @@
     "dev": "wrangler dev",
     "types": "wrangler types --strict-vars false --include-runtime false",
     "typecheck": "wrangler types --strict-vars false --include-runtime false --check && tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "eval:classify": "node --experimental-strip-types scripts/eval-classify.ts"
   },
   "engines": {
     "node": ">=22"

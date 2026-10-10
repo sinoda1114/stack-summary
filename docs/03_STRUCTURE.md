@@ -121,7 +121,7 @@ stack-summary/
 | §7 JSON API | `src/worker/routes/*`、`src/client/api.ts`。資源ごとにファイルを分ける |
 | §8 画面 | `src/client/*` |
 | §9 配置先 | `wrangler.jsonc`、`.github/workflows/ci.yml`。自動デプロイは段階 10 |
-| §10 検証 | `test/*`、`scripts/eval-classify.ts`、`eval/README.md` |
+| §10 検証 | `test/*`、`scripts/eval-classify.ts`、`eval/README.md`、`src/worker/ai/score-classification.ts` |
 
 ## 3. 依存パッケージ
 
