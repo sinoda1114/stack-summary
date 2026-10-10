@@ -12,7 +12,7 @@ export function ImportPage() {
   const [rows, setRows] = useState<ImportItem[]>([]);
 
   useEffect(() => {
-    void reload(setRows);
+    void reload(setRows, setMessage);
   }, []);
 
   async function onSubmit(): Promise<void> {
@@ -23,7 +23,7 @@ export function ImportPage() {
     }
     setMessage(submitMessage(result.httpStatus, result.data));
     setText("");
-    await reload(setRows);
+    await reload(setRows, setMessage);
   }
 
   return (
@@ -68,9 +68,12 @@ function submitMessage(httpStatus: number, item: ImportItem): string {
 
 async function reload(
   setRows: (rows: ImportItem[]) => void,
+  setMessage: (message: string | null) => void,
 ): Promise<void> {
   const result = await listImports();
-  if (result.success && result.data !== null) {
-    setRows(result.data);
+  if (!result.success || result.data === null) {
+    setMessage(result.error?.message ?? "取り込み履歴を取得できませんでした");
+    return;
   }
+  setRows(result.data);
 }

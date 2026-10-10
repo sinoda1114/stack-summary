@@ -69,6 +69,30 @@ describe("メモと書き出しの画面", () => {
     expect(link.getAttribute("rel")).toBe("noopener noreferrer");
     expect(screen.queryByRole("link", { name: /javascript/ })).toBeNull();
   });
+
+  it("取得に失敗したら日本語の理由を出す", async () => {
+    stubMatch(false);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({
+          success: false,
+          data: null,
+          error: { code: "forbidden", message: "認証に失敗しました" },
+        }),
+      ),
+    );
+    render(
+      <MantineProvider>
+        <MemoryRouter initialEntries={["/memos"]}>
+          <Routes>
+            <Route path="/memos" element={<MemoPage />} />
+          </Routes>
+        </MemoryRouter>
+      </MantineProvider>,
+    );
+    expect(await screen.findByText("認証に失敗しました")).toBeTruthy();
+  });
 });
 
 function stubMatch(matches: boolean): void {

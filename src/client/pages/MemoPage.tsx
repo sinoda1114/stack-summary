@@ -1,6 +1,7 @@
 import { Button, Stack, Text, TextInput, Title } from "@mantine/core";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
+import { requestJson } from "../api";
 import { MemoText } from "../components/MemoText";
 import { useIsMobile } from "../hooks/useIsMobile";
 
@@ -33,6 +34,7 @@ export function MemoPage() {
 function MemoSearch() {
   const [q, setQ] = useState("");
   const [memos, setMemos] = useState<MemoListItem[]>([]);
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -40,18 +42,28 @@ function MemoSearch() {
       params.set("q", q.trim());
     }
     const query = params.size === 0 ? "" : `?${params.toString()}`;
-    void fetch(`/api/memos${query}`)
-      .then((response) => response.json())
-      .then((body: { success: boolean; data: MemoListItem[] | null }) => {
-        if (body.success && body.data !== null) {
-          setMemos(body.data);
-        }
-      });
+    let current = true;
+    void requestJson<MemoListItem[]>(`/api/memos${query}`).then((result) => {
+      if (!current) {
+        return;
+      }
+      if (!result.success || result.data === null) {
+        setMemos([]);
+        setNotice(result.error?.message ?? "メモを取得できませんでした");
+        return;
+      }
+      setNotice(null);
+      setMemos(result.data);
+    });
+    return () => {
+      current = false;
+    };
   }, [q]);
 
   return (
     <Stack p="md">
       <Title order={1}>メモ</Title>
+      {notice === null ? null : <Text>{notice}</Text>}
       <TextInput label="検索" value={q} onChange={(event) => setQ(event.currentTarget.value)} />
       {memos.map((memo) => (
         <Text key={memo.id}>
@@ -67,28 +79,50 @@ function MemoSearch() {
 function MemoDetailView(props: { id: string }) {
   const mobile = useIsMobile();
   const [detail, setDetail] = useState<MemoDetail | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
-    void load();
+    let current = true;
+    void loadDetail(props.id).then((result) => {
+      if (!current) {
+        return;
+      }
+      if (!result.success || result.data === null) {
+        setDetail(null);
+        setNotice(result.error?.message ?? "メモを取得できませんでした");
+        return;
+      }
+      setNotice(null);
+      setDetail(result.data);
+    });
+    return () => {
+      current = false;
+    };
   }, [props.id]);
 
-  async function load(): Promise<void> {
-    const response = await fetch(`/api/memos/${props.id}`);
-    const body = (await response.json()) as { success: boolean; data: MemoDetail | null };
-    if (body.success && body.data !== null) {
-      setDetail(body.data);
-    }
-  }
-
   async function promote(name: string): Promise<void> {
-    await fetch("/api/mentions/promote", {
+    const result = await requestJson<{ techId: string }>(`/api/mentions/promote`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ memoId: props.id, name }),
     });
-    await load();
+    if (!result.success) {
+      setNotice(result.error?.message ?? "格上げに失敗しました");
+      return;
+    }
+    const loaded = await loadDetail(props.id);
+    if (!loaded.success || loaded.data === null) {
+      setDetail(null);
+      setNotice(loaded.error?.message ?? "メモを取得できませんでした");
+      return;
+    }
+    setNotice(null);
+    setDetail(loaded.data);
   }
 
+  if (notice !== null && detail === null) {
+    return <Text p="md">{notice}</Text>;
+  }
   if (detail === null) {
     return <Text p="md">読み込み中</Text>;
   }
@@ -96,6 +130,7 @@ function MemoDetailView(props: { id: string }) {
   return (
     <Stack p="md">
       <Title order={1}>{detail.title}</Title>
+      {notice === null ? null : <Text>{notice}</Text>}
       <Text>{detail.memoDate ?? "日付なし"}</Text>
       <MemoText text={detail.body} />
       {detail.techs.map((tech) => (
@@ -120,4 +155,8 @@ function MemoDetailView(props: { id: string }) {
       ))}
     </Stack>
   );
+}
+
+function loadDetail(id: string) {
+  return requestJson<MemoDetail>(`/api/memos/${id}`);
 }

@@ -163,7 +163,7 @@ function MergeBox(props: { sourceId: string | undefined }) {
       return;
     }
     setNeedsChoice(false);
-    setNotice(null);
+    setNotice("統合しました");
   }
 
   return (
