@@ -62,7 +62,7 @@ export class VerifyDiscordWorkflow extends WorkflowEntrypoint<Env, Record<string
         }
       });
       // 同じ呼び出しにステップがまとまると、無料プランの subrequest 上限で落ちる。
-      await step.sleep("1 second");
+      await step.sleep(`pause-memo-${postId}`, "1 second");
     }
     const applyJobs = await step.do("list-applies", STEP, async () => {
       const listed = await this.env.DB.prepare(
@@ -87,7 +87,7 @@ export class VerifyDiscordWorkflow extends WorkflowEntrypoint<Env, Record<string
           return { ok: false as const };
         }
       });
-      await step.sleep("1 second");
+      await step.sleep(`pause-apply-${index}`, "1 second");
     }
     const techIds = await step.do("list-techs", STEP, async () => {
       const listed = await this.env.DB.prepare(
@@ -119,7 +119,7 @@ export class VerifyDiscordWorkflow extends WorkflowEntrypoint<Env, Record<string
         }
       });
       clefStopped = result.stop;
-      await step.sleep("1 second");
+      await step.sleep(`pause-clef-${index}`, "1 second");
     }
     const sampleIds = await step.do("list-sample", STEP, async () => {
       const listed = await this.env.DB.prepare(
@@ -145,7 +145,7 @@ export class VerifyDiscordWorkflow extends WorkflowEntrypoint<Env, Record<string
         }
       });
       sampleStopped = result.stop;
-      await step.sleep("1 second");
+      await step.sleep(`pause-sample-${index}`, "1 second");
     }
     await step.do("finish", STEP, async () => {
       await markDone(this.env.DB);
