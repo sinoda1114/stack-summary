@@ -44,34 +44,34 @@ export async function promoteMention(
     case "conflict":
       return { ok: false, code: "conflict" };
     case "attach":
-      await db.batch([
-        ...plan.aliasesToInsert.map((alias) => aliasInsert(db, plan.techId, alias)),
-        linkInsert(db, input.memoId, plan.techId, "subject"),
-        deleteMention(db, input.memoId, input.name),
-      ]);
-      return {
-        ok: true,
-        techId: plan.techId,
-        relation: await storedRelation(db, input.memoId, plan.techId),
-      };
+      return writePromotion(db, input, plan.techId, plan.aliasesToInsert);
     case "create": {
       const created = await createTech(db, entry, input.now);
-      await db.batch([
-        ...plan.aliasesToInsert.map((alias) => aliasInsert(db, created.techId, alias)),
-        linkInsert(db, input.memoId, created.techId, "subject"),
-        deleteMention(db, input.memoId, input.name),
-      ]);
-      return {
-        ok: true,
-        techId: created.techId,
-        relation: await storedRelation(db, input.memoId, created.techId),
-      };
+      return writePromotion(db, input, created.techId, plan.aliasesToInsert);
     }
     default: {
       const unexpected: never = plan;
       throw new Error(`未知の照合です: ${String(unexpected)}`);
     }
   }
+}
+
+async function writePromotion(
+  db: D1Database,
+  input: { memoId: string; name: string },
+  techId: string,
+  aliases: readonly { key: string; label: string }[],
+): Promise<{ ok: true; techId: string; relation: TechRelation }> {
+  await db.batch([
+    ...aliases.map((alias) => aliasInsert(db, techId, alias)),
+    linkInsert(db, input.memoId, techId, "subject"),
+    deleteMention(db, input.memoId, input.name),
+  ]);
+  return {
+    ok: true,
+    techId,
+    relation: await storedRelation(db, input.memoId, techId),
+  };
 }
 
 function deleteMention(
