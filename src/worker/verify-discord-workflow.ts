@@ -24,12 +24,10 @@ import {
   type ExtractTechOutput,
 } from "./ai/prompts/extract.v1";
 import { readGeminiRuntime } from "./env";
+import { upsertTag } from "./db/tags";
 import { classifyTechRow, listCategories, listSubcategories } from "./db/taxonomy";
-import {
-  applyExtractions,
-  type ImportRunner,
-} from "./workflows/import-steps";
 import type { SavedMemo } from "./db/memos";
+import { resolveExtractedTech } from "./ingest/resolve-tech";
 
 export const VERIFY_CALL_LIMIT = 325;
 
@@ -57,6 +55,30 @@ export class VerifyDiscordWorkflow extends WorkflowEntrypoint<Env, Record<string
       await step.do(`memo-${postId}`, STEP, async () => {
         try {
           await extractPost(this.env, postId);
+          return { ok: true as const };
+        } catch (error) {
+          await rememberNote(this.env.DB, publicModelError(error));
+          return { ok: false as const };
+        }
+      });
+    }
+    const applyJobs = await step.do("list-applies", STEP, async () => {
+      const listed = await this.env.DB.prepare(
+        "SELECT memo_id, payload FROM verify_extracts ORDER BY memo_id",
+      ).all<{ memo_id: string; payload: string }>();
+      const jobs: { memoId: string; index: number }[] = [];
+      for (const row of listed.results) {
+        const extracted = parseStoredExtract(row.payload);
+        for (let index = 0; index < extracted.techs.length; index += 1) {
+          jobs.push({ memoId: row.memo_id, index });
+        }
+      }
+      return jobs;
+    });
+    for (const [index, job] of applyJobs.entries()) {
+      await step.do(`apply-${index}`, STEP, async () => {
+        try {
+          await applyOneTech(this.env, job.memoId, job.index);
           return { ok: true as const };
         } catch (error) {
           await rememberNote(this.env.DB, publicModelError(error));
@@ -144,21 +166,55 @@ async function extractPost(env: Env, postId: string): Promise<void> {
   }
   const now = new Date().toISOString();
   const memo = await ensureMemo(env.DB, post, now);
-  const extracted = await lightExtract(env, memo, now);
-  const runtime = readGeminiRuntime(env);
-  if (runtime === null || env.GEMINI_API_KEY.trim().length === 0) {
-    throw new Error("Gemini の設定がありません");
-  }
-  const runner: ImportRunner = {
-    db: env.DB,
-    generator: geminiGeneratorFromApiKey(env.GEMINI_API_KEY),
-    modelLight: runtime.modelLight,
-    modelHeavy: runtime.modelHeavy,
-    now,
-    classifier: clefClassifier(clefDecider(clefBinding(env.AI))),
-  };
-  await applyExtractions(runner, [{ memo, extracted }]);
+  await lightExtract(env, memo, now);
   await refreshJob(env.DB, "extract");
+}
+
+async function applyOneTech(env: Env, memoId: string, index: number): Promise<void> {
+  const memo = await env.DB.prepare("SELECT id, title, body FROM memos WHERE id = ?")
+    .bind(memoId)
+    .first<{ id: string; title: string; body: string }>();
+  const saved = await env.DB.prepare("SELECT payload FROM verify_extracts WHERE memo_id = ?")
+    .bind(memoId)
+    .first<{ payload: string }>();
+  if (memo === null || saved === null) {
+    return;
+  }
+  const tech = parseStoredExtract(saved.payload).techs[index];
+  if (tech === undefined) {
+    return;
+  }
+  const now = new Date().toISOString();
+  const resolved = await resolveExtractedTech(env.DB, {
+    memoId: memo.id,
+    name: tech.name,
+    aliases: tech.aliases,
+    relation: tech.relation,
+    now,
+  });
+  if (resolved.kind !== "attached") {
+    return;
+  }
+  for (const tag of tech.tags) {
+    if (tag.name.trim().length === 0) {
+      continue;
+    }
+    const tagId = await upsertTag(env.DB, { name: tag.name, kind: tag.kind });
+    await env.DB.prepare(
+      `INSERT INTO tech_tags (tech_id, tag_id, source)
+       VALUES (?, ?, 'model')
+       ON CONFLICT(tech_id, tag_id) DO NOTHING`,
+    )
+      .bind(resolved.techId, tagId)
+      .run();
+    await env.DB.prepare(
+      `INSERT INTO memo_tags (memo_id, tag_id, source)
+       VALUES (?, ?, 'model')
+       ON CONFLICT(memo_id, tag_id) DO NOTHING`,
+    )
+      .bind(memo.id, tagId)
+      .run();
+  }
 }
 
 async function lightExtract(
@@ -403,14 +459,17 @@ async function ensureMemo(
     .bind(memoId, importId, post.title, post.body, memoDate, now)
     .run();
   const urls = parseUrls(post.urls_json);
-  for (const url of urls) {
-    await db
-      .prepare(
-        `INSERT INTO memo_urls (memo_id, url) VALUES (?, ?)
-         ON CONFLICT(memo_id, url) DO NOTHING`,
-      )
-      .bind(memoId, url)
-      .run();
+  if (urls.length > 0) {
+    const placeholders = urls.map(() => "(?, ?)").join(", ");
+    const statement = db.prepare(
+      `INSERT INTO memo_urls (memo_id, url) VALUES ${placeholders}
+       ON CONFLICT(memo_id, url) DO NOTHING`,
+    );
+    const binds: string[] = [];
+    for (const url of urls) {
+      binds.push(memoId, url);
+    }
+    await statement.bind(...binds).run();
   }
   return { id: memoId, title: post.title, body: post.body, urls };
 }

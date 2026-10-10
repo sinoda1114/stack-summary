@@ -9,9 +9,6 @@ export default defineConfig({
     entrypoint: "src/worker/verify-index.ts",
     workersDev: false,
     previewUrls: false,
-    limits: {
-      subrequests: 1000,
-    },
     observability: {
       enabled: true,
       headSamplingRate: 1,
