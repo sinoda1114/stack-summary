@@ -134,6 +134,11 @@ describe("/api のその他", () => {
     expect(response.status).toBe(403);
   });
 
+  it("パーセント符号化された /api も 403", async () => {
+    const response = await call("/%61pi/health");
+    expect(response.status).toBe(403);
+  });
+
   it("Access 以外のチームドメインは 403", async () => {
     const response = await call("/api/health", {
       token: await sign(),

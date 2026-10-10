@@ -5,7 +5,7 @@ import { accessAuth } from "./middleware/access-auth";
 export const app = new Hono<{ Bindings: Env }>();
 
 app.use("*", async (c, next) => {
-  if (isApiPath(new URL(c.req.url).pathname)) {
+  if (isApiPath(c.req.path)) {
     return accessAuth(c, next);
   }
   await next();
