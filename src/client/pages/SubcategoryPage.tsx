@@ -1,0 +1,71 @@
+import { Stack, Table, Text, Title } from "@mantine/core";
+import { useEffect, useState } from "react";
+import { Link, useParams } from "react-router";
+import { TECH_STATUS_LABELS, type TechStatus } from "../../shared/labels";
+
+type Comparison = {
+  name: string;
+  categoryName: string;
+  techs: {
+    id: string;
+    name: string;
+    status: TechStatus;
+    reason: string | null;
+    memoCount: number;
+    updatedAt: string;
+  }[];
+};
+
+export function SubcategoryPage() {
+  const params = useParams();
+  const [comparison, setComparison] = useState<Comparison | null>(null);
+
+  useEffect(() => {
+    if (params.id === undefined) {
+      return;
+    }
+    void fetch(`/api/subcategories/${params.id}`)
+      .then((response) => response.json())
+      .then((body: { success: boolean; data: Comparison | null }) => {
+        if (body.success && body.data !== null) {
+          setComparison(body.data);
+        }
+      });
+  }, [params.id]);
+
+  if (comparison === null) {
+    return <Text p="md">読み込み中</Text>;
+  }
+
+  return (
+    <Stack p="md">
+      <Title order={1}>
+        {comparison.categoryName} / {comparison.name}
+      </Title>
+      <Table>
+        <Table.Thead>
+          <Table.Tr>
+            <Table.Th>技術</Table.Th>
+            <Table.Th>状態</Table.Th>
+            <Table.Th>理由</Table.Th>
+            <Table.Th>メモ</Table.Th>
+            <Table.Th>更新</Table.Th>
+          </Table.Tr>
+        </Table.Thead>
+        <Table.Tbody>
+          {comparison.techs.map((tech) => (
+            <Table.Tr key={tech.id}>
+              <Table.Td>
+                <Link to={`/techs/${tech.id}`}>{tech.name}</Link>
+              </Table.Td>
+              <Table.Td>{TECH_STATUS_LABELS[tech.status]}</Table.Td>
+              <Table.Td>{tech.reason ?? ""}</Table.Td>
+              <Table.Td>{tech.memoCount}</Table.Td>
+              <Table.Td>{tech.updatedAt}</Table.Td>
+            </Table.Tr>
+          ))}
+        </Table.Tbody>
+      </Table>
+    </Stack>
+  );
+}
