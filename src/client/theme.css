@@ -146,6 +146,14 @@ body {
   box-shadow: 8px 0 24px rgb(22 24 29 / 16%);
 }
 
+.sidebar-drawer:focus {
+  outline: none;
+}
+
+body:has(.sidebar-drawer) {
+  overflow: hidden;
+}
+
 .nav-link:focus-visible,
 .nav-menu:focus-visible,
 .record-row a:focus-visible,

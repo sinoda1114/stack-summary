@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useMediaQuery } from "@mantine/hooks";
 import { Link, NavLink } from "react-router";
 
@@ -9,6 +9,8 @@ type NavIconName = "grid" | "relations" | "import" | "memo" | "inbox" | "taxonom
 export function AppNav() {
   const mobile = useMediaQuery(NARROW_NAV_QUERY, false, { getInitialValueInEffect: false });
   const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLButtonElement>(null);
+  const drawerRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     if (!mobile) {
@@ -23,6 +25,7 @@ export function AppNav() {
     const onKey = (event: KeyboardEvent): void => {
       if (event.key === "Escape") {
         setOpen(false);
+        menuRef.current?.focus();
       }
     };
     window.addEventListener("keydown", onKey);
@@ -31,8 +34,20 @@ export function AppNav() {
     };
   }, [open]);
 
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    drawerRef.current?.focus();
+  }, [open]);
+
   function close(): void {
     setOpen(false);
+  }
+
+  function closeFromChrome(): void {
+    setOpen(false);
+    menuRef.current?.focus();
   }
 
   const body = <NavBody mobile={mobile} onSelect={mobile ? close : undefined} />;
@@ -45,6 +60,7 @@ export function AppNav() {
     <>
       <header className="mobile-bar">
         <button
+          ref={menuRef}
           type="button"
           className="nav-menu"
           aria-label="メニューを開く"
@@ -59,8 +75,16 @@ export function AppNav() {
       </header>
       {open ? (
         <>
-          <button type="button" className="drawer-scrim" aria-label="メニューを閉じる" onClick={close} />
-          <aside id="app-nav-drawer" className="sidebar sidebar-drawer">
+          <button type="button" className="drawer-scrim" aria-label="メニューを閉じる" onClick={closeFromChrome} />
+          <aside
+            ref={drawerRef}
+            id="app-nav-drawer"
+            className="sidebar sidebar-drawer"
+            role="dialog"
+            aria-modal="true"
+            aria-label="メニュー"
+            tabIndex={-1}
+          >
             {body}
           </aside>
         </>

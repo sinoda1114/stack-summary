@@ -68,7 +68,7 @@ describe("画面ナビ", () => {
 
     await userEvent.click(menu);
 
-    expect(document.querySelector("aside.sidebar-drawer")).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "メニュー" })).toBeTruthy();
     expect(menu.getAttribute("aria-expanded")).toBe("true");
     expect(screen.getByRole("link", { name: "全体図" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "関係" })).toBeTruthy();
@@ -89,6 +89,10 @@ describe("画面ナビ", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "メニューを開く" }));
     await userEvent.click(screen.getByRole("link", { name: "メモ" }));
+    expect(document.querySelector("aside.sidebar")).toBeNull();
+
+    await userEvent.click(screen.getByRole("button", { name: "メニューを開く" }));
+    await userEvent.keyboard("{Escape}");
     expect(document.querySelector("aside.sidebar")).toBeNull();
   });
 });
