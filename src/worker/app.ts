@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { clientDocumentResponse, isClientDocumentPath } from "./client-document";
 import { fail, ok } from "./http";
 import { accessAuth } from "./middleware/access-auth";
 import { originCheck } from "./middleware/origin-check";
@@ -22,9 +23,20 @@ app.get("/api/health", (c) => {
 
 registerImportRoutes(app);
 
-app.notFound((c) => {
+app.notFound(async (c) => {
+  if (
+    isDocumentMethod(c.req.method) &&
+    !isApiPath(c.req.path) &&
+    isClientDocumentPath(c.req.path)
+  ) {
+    return clientDocumentResponse(c.req.raw, c.env);
+  }
   return c.json(fail("not_found", "見つかりません"), 404);
 });
+
+function isDocumentMethod(method: string): boolean {
+  return method === "GET" || method === "HEAD";
+}
 
 function isApiPath(pathname: string): boolean {
   const path = pathname.toLowerCase();
