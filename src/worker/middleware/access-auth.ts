@@ -17,10 +17,21 @@ export type AccessConfig = {
 
 const jwksByUrl = new Map<string, JWTVerifyGetKey>();
 
+export function isPreviewOpen(env: object): boolean {
+  const flag = (env as { PREVIEW_OPEN?: unknown }).PREVIEW_OPEN;
+  return flag === "1";
+}
+
+function readString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
 function readAccessConfig(env: Env): AccessConfig | null {
-  const teamDomain = env.ACCESS_TEAM_DOMAIN.trim().replace(/\/+$/, "");
-  const audience = env.ACCESS_AUD.trim();
-  const ownerEmail = env.OWNER_EMAIL.trim();
+  const teamDomain = readString(env.ACCESS_TEAM_DOMAIN).replace(/\/+$/, "");
+  const audience = readString(env.ACCESS_AUD);
+  const ownerEmail = readString(
+    (env as { OWNER_EMAIL?: unknown }).OWNER_EMAIL,
+  );
   if (
     !isAccessTeamDomain(teamDomain) ||
     audience.length === 0 ||
@@ -80,6 +91,10 @@ export async function verifyAccessJwt(
 
 export const accessAuth = createMiddleware<{ Bindings: Env }>(async (c, next) => {
   const config = readAccessConfig(c.env);
+  if (config === null && isPreviewOpen(c.env)) {
+    await next();
+    return;
+  }
   const token = c.req.header(ACCESS_HEADER)?.trim();
   if (config === null || token === undefined || token.length === 0) {
     return c.json(fail("forbidden", FORBIDDEN_MESSAGE), 403);

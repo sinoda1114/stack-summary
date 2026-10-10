@@ -19,7 +19,12 @@ export class ImportWorkflow extends WorkflowEntrypoint<Env, ImportWorkflowParams
   ): Promise<void> {
     const runtime = readGeminiRuntime(this.env);
     if (runtime === null) {
-      throw new Error("Gemini の設定がありません");
+      const apiKey = this.env.GEMINI_API_KEY?.trim() ?? "";
+      throw new Error(
+        apiKey.length === 0
+          ? "Gemini の API キーがありません"
+          : "Gemini の設定がありません",
+      );
     }
     await executeImport(
       step as ImportStepRunner,

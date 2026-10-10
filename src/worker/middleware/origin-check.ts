@@ -1,5 +1,6 @@
 import { createMiddleware } from "hono/factory";
 import { fail, FORBIDDEN_MESSAGE } from "../http";
+import { isPreviewOpen } from "./access-auth";
 
 const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
@@ -17,6 +18,10 @@ export function originMatches(
 export const originCheck = createMiddleware<{ Bindings: Env }>(
   async (c, next) => {
     if (!MUTATING.has(c.req.method)) {
+      await next();
+      return undefined;
+    }
+    if (isPreviewOpen(c.env) && c.env.APP_ORIGIN.trim().length === 0) {
       await next();
       return undefined;
     }

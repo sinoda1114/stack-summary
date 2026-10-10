@@ -20,11 +20,11 @@ export type GeminiRuntime = {
 };
 
 export function readGeminiRuntime(env: {
-  GEMINI_API_KEY: string;
+  GEMINI_API_KEY?: string;
   GEMINI_MODEL: string;
   IMPORT_MAX_CHARS: string;
 }): GeminiRuntime | null {
-  const apiKey = env.GEMINI_API_KEY.trim();
+  const apiKey = env.GEMINI_API_KEY?.trim() ?? "";
   const model = env.GEMINI_MODEL.trim();
   const maxCharsText = env.IMPORT_MAX_CHARS.trim();
   if (
