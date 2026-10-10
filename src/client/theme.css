@@ -3,21 +3,21 @@
 html,
 body,
 #root {
-  background: #ffffff;
-  color: #14181f;
+  background: var(--mantine-color-body);
+  color: var(--mantine-color-text);
   min-height: 100%;
 }
 
 body {
   margin: 0;
-  font-family: "IBM Plex Sans JP", "Hiragino Sans", sans-serif;
+  font-family: var(--mantine-font-family);
 }
 
 .app-shell {
   display: flex;
   align-items: stretch;
   min-height: 100vh;
-  background: #ffffff;
+  background: var(--mantine-color-body);
 }
 
 .sidebar {
@@ -27,8 +27,8 @@ body {
   flex-direction: column;
   gap: 22px;
   padding: 22px 12px;
-  border-right: 1px solid #e2e6ed;
-  background: #ffffff;
+  border-right: 1px solid var(--mantine-color-default-border);
+  background: var(--mantine-color-body);
 }
 
 .wordmark {
@@ -36,7 +36,7 @@ body {
   align-items: center;
   gap: 10px;
   padding: 0 8px;
-  color: #14181f;
+  color: var(--mantine-color-text);
   text-decoration: none;
 }
 
@@ -45,8 +45,8 @@ body {
   height: 28px;
   display: grid;
   place-items: center;
-  background: #0b57d0;
-  color: #ffffff;
+  background: var(--mantine-color-accent-6);
+  color: var(--mantine-color-white);
   border-radius: 8px;
   font-size: 14px;
   font-weight: 600;
@@ -59,10 +59,10 @@ body {
   letter-spacing: 0.08em;
 }
 
-.wordmark span span {
+.wordmark-sub {
   display: block;
   margin-top: 1px;
-  color: #5d6672;
+  color: var(--stack-dimmed);
   font-size: 12px;
   font-weight: 400;
 }
@@ -80,7 +80,7 @@ body {
   height: 40px;
   padding: 0 12px;
   border-radius: 8px;
-  color: #2c3340;
+  color: var(--stack-nav);
   font-size: 14px;
   font-weight: 500;
   text-decoration: none;
@@ -93,14 +93,14 @@ body {
 }
 
 .nav-link[aria-current="page"] {
-  background: #0b57d0;
-  color: #ffffff;
+  background: var(--mantine-color-accent-6);
+  color: var(--mantine-color-white);
 }
 
 .nav-link:focus-visible,
 .record-row a:focus-visible,
 .wordmark:focus-visible {
-  outline: 2px solid #0b57d0;
+  outline: 2px solid var(--mantine-color-accent-6);
   outline-offset: 3px;
 }
 
@@ -111,27 +111,27 @@ body {
 }
 
 :where(.sheet) a:not(:where(.nav-link, .wordmark)) {
-  color: #0b57d0;
+  color: var(--mantine-color-accent-6);
   text-underline-offset: 3px;
 }
 
 .section-card {
-  background: #ffffff;
-  border: 1px solid #e2e6ed;
-  border-radius: 16px;
+  background: var(--mantine-color-white);
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-default);
   padding: 20px 22px 22px;
 }
 
 .record-list {
-  background: #ffffff;
-  border: 1px solid #e2e6ed;
-  border-radius: 16px;
+  background: var(--mantine-color-white);
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-default);
   overflow: hidden;
 }
 
 .record-row {
   padding: 13px 16px;
-  border-bottom: 1px solid #e2e6ed;
+  border-bottom: 1px solid var(--mantine-color-default-border);
 }
 
 .record-row:last-child {
@@ -146,22 +146,22 @@ body {
 .subcategory + .subcategory {
   margin-top: 18px;
   padding-top: 16px;
-  border-top: 1px solid #e2e6ed;
+  border-top: 1px solid var(--mantine-color-default-border);
 }
 
 .meta {
-  color: #5d6672;
+  color: var(--stack-dimmed);
   font-size: 14px;
 }
 
 .note {
   margin: 0;
   padding: 12px 14px;
-  background: #ffffff;
-  border: 1px solid #e2e6ed;
-  border-left: 3px solid #0b57d0;
-  border-radius: 16px;
-  color: #14181f;
+  background: var(--mantine-color-white);
+  border: 1px solid var(--mantine-color-default-border);
+  border-left: 3px solid var(--mantine-color-accent-6);
+  border-radius: var(--mantine-radius-default);
+  color: var(--mantine-color-text);
 }
 
 .memo-body {
@@ -176,7 +176,7 @@ body {
 
 .mention {
   padding-top: 14px;
-  border-top: 1px solid #e2e6ed;
+  border-top: 1px solid var(--mantine-color-default-border);
 }
 
 .current-name {
@@ -186,7 +186,7 @@ body {
 }
 
 .section-kicker {
-  color: #5d6672;
+  color: var(--stack-dimmed);
   font-size: 13px;
 }
 
@@ -203,9 +203,9 @@ body {
   max-width: 92%;
   white-space: pre-wrap;
   padding: 12px 14px;
-  background: #f4f6f9;
-  border: 1px solid #e2e6ed;
-  border-radius: 16px;
+  background: var(--stack-chip);
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-default);
 }
 
 .chat-answer {
@@ -222,7 +222,7 @@ body {
   .sidebar {
     width: auto;
     border-right: 0;
-    border-bottom: 1px solid #e2e6ed;
+    border-bottom: 1px solid var(--mantine-color-default-border);
     padding: 16px 12px;
   }
 

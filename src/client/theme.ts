@@ -17,10 +17,18 @@ const accent: MantineColorsTuple = [
   "#042864",
 ];
 
-const label = {
-  fontWeight: 500,
-  marginBottom: 6,
-  color: "#5d6672",
+const fontFamily = '"IBM Plex Sans JP", "Hiragino Sans", sans-serif';
+
+const field = {
+  input: {
+    backgroundColor: "var(--mantine-color-white)",
+    borderColor: "var(--mantine-color-default-border)",
+  },
+  label: {
+    fontWeight: 500,
+    marginBottom: 6,
+    color: "var(--stack-dimmed)",
+  },
 };
 
 export const theme = createTheme({
@@ -28,9 +36,9 @@ export const theme = createTheme({
   primaryShade: 6,
   black: "#14181f",
   white: "#ffffff",
-  fontFamily: '"IBM Plex Sans JP", "Hiragino Sans", sans-serif',
+  fontFamily,
   headings: {
-    fontFamily: '"IBM Plex Sans JP", "Hiragino Sans", sans-serif',
+    fontFamily,
     fontWeight: "600",
     sizes: {
       h1: { fontSize: "1.65rem", lineHeight: "1.3", fontWeight: "600" },
@@ -42,15 +50,12 @@ export const theme = createTheme({
   components: {
     Button: {
       defaultProps: { variant: "default", fw: 500, radius: 999 },
-      styles: { root: { borderRadius: 999 } },
     },
     ActionIcon: {
       defaultProps: { radius: 999 },
-      styles: { root: { borderRadius: 999 } },
     },
     CloseButton: {
       defaultProps: { radius: 999 },
-      styles: { root: { borderRadius: 999 } },
     },
     Badge: {
       defaultProps: { tt: "none", radius: 999, fw: 500 },
@@ -61,7 +66,6 @@ export const theme = createTheme({
           padding: "4px 10px",
           lineHeight: 1.5,
           cursor: "pointer",
-          borderRadius: 999,
         },
       },
     },
@@ -70,40 +74,14 @@ export const theme = createTheme({
     },
     TextInput: {
       defaultProps: { radius: 999 },
-      styles: {
-        input: {
-          backgroundColor: "#ffffff",
-          borderColor: "var(--mantine-color-default-border)",
-          borderRadius: 999,
-        },
-        label,
-      },
+      styles: field,
     },
     Textarea: {
-      defaultProps: { radius: 16 },
-      styles: {
-        input: {
-          backgroundColor: "#ffffff",
-          borderColor: "var(--mantine-color-default-border)",
-          borderRadius: 16,
-        },
-        label,
-      },
+      styles: field,
     },
     Select: {
       defaultProps: { radius: 999 },
-      styles: {
-        input: {
-          backgroundColor: "#ffffff",
-          borderColor: "var(--mantine-color-default-border)",
-          borderRadius: 999,
-        },
-        label,
-      },
-    },
-    Paper: {
-      defaultProps: { radius: 16 },
-      styles: { root: { borderRadius: 16 } },
+      styles: field,
     },
     Table: {
       defaultProps: {
@@ -112,16 +90,10 @@ export const theme = createTheme({
         horizontalSpacing: "md",
       },
       styles: {
-        table: {
-          backgroundColor: "#ffffff",
-          borderRadius: 16,
-          borderCollapse: "separate",
-          borderSpacing: 0,
-          overflow: "hidden",
-        },
+        table: { backgroundColor: "var(--mantine-color-white)" },
         th: {
           fontWeight: 500,
-          color: "#5d6672",
+          color: "var(--stack-dimmed)",
           fontSize: "12px",
         },
         td: { borderColor: "var(--mantine-color-default-border)" },
@@ -131,17 +103,16 @@ export const theme = createTheme({
       defaultProps: { radius: 999 },
       styles: {
         list: { marginBottom: 4 },
-        tab: { fontWeight: 500, borderRadius: 999 },
+        tab: { fontWeight: 500 },
         panel: { paddingTop: 22 },
       },
     },
     Accordion: {
+      defaultProps: { radius: 16 },
       styles: {
         item: {
-          backgroundColor: "#ffffff",
+          backgroundColor: "var(--mantine-color-white)",
           borderColor: "var(--mantine-color-default-border)",
-          borderRadius: 16,
-          overflow: "hidden",
         },
         control: { padding: "14px 16px" },
       },
@@ -163,6 +134,9 @@ export const cssVariablesResolver: CSSVariablesResolver = (theme) => ({
   variables: {
     "--mantine-font-family": theme.fontFamily,
     "--mantine-font-family-headings": theme.headings.fontFamily,
+    "--stack-dimmed": "#5d6672",
+    "--stack-nav": "#2c3340",
+    "--stack-chip": "#f4f6f9",
   },
   light: {
     "--mantine-color-body": "#ffffff",

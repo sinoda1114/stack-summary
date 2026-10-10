@@ -12,7 +12,7 @@ export function AppNav() {
         <span className="mark">S</span>
         <span>
           <b>STACK</b>
-          <span>Summary</span>
+          <span className="wordmark-sub">Summary</span>
         </span>
       </Link>
       <nav className="nav-links" aria-label="画面">
