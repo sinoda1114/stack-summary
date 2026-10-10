@@ -123,27 +123,100 @@ export async function mergeSubcategory(
     return { ok: false, code: "self_merge" };
   }
   const into = await db
-    .prepare("SELECT id FROM subcategories WHERE id = ?")
+    .prepare("SELECT id, category_id FROM subcategories WHERE id = ?")
     .bind(input.intoId)
-    .first();
+    .first<{ id: string; category_id: string }>();
   const source = await db
     .prepare("SELECT id FROM subcategories WHERE id = ?")
     .bind(input.sourceId)
-    .first();
+    .first<{ id: string }>();
   if (into === null || source === null) {
     return { ok: false, code: "not_found" };
   }
-  await db.batch([
+  const affected = await db
+    .prepare("SELECT tech_id FROM tech_subcategories WHERE subcategory_id = ?")
+    .bind(input.sourceId)
+    .all<{ tech_id: string }>();
+  const techIds = affected.results.map((row) => row.tech_id);
+  const statements = subcategoryMergeStatements(db, {
+    intoCategoryId: into.category_id,
+    techIds,
+    now: input.now,
+  });
+  if (techIds.length > 0) {
+    const marks = techIds.map(() => "?").join(", ");
+    const foreign = await db
+      .prepare(
+        `SELECT ts.tech_id, ts.subcategory_id
+         FROM tech_subcategories ts
+         JOIN subcategories s ON s.id = ts.subcategory_id
+         WHERE ts.tech_id IN (${marks})
+           AND s.category_id <> ?`,
+      )
+      .bind(...techIds, into.category_id)
+      .all<{ tech_id: string; subcategory_id: string }>();
+    for (const row of foreign.results) {
+      statements.push(
+        db
+          .prepare(
+            `DELETE FROM tech_subcategories
+             WHERE tech_id = ? AND subcategory_id = ?`,
+          )
+          .bind(row.tech_id, row.subcategory_id),
+      );
+    }
+  }
+  const already = await db
+    .prepare("SELECT tech_id FROM tech_subcategories WHERE subcategory_id = ?")
+    .bind(input.intoId)
+    .all<{ tech_id: string }>();
+  const intoIds = new Set(already.results.map((row) => row.tech_id));
+  for (const techId of techIds) {
+    if (!intoIds.has(techId)) {
+      continue;
+    }
+    statements.push(
+      db
+        .prepare(
+          `DELETE FROM tech_subcategories
+           WHERE tech_id = ? AND subcategory_id = ?`,
+        )
+        .bind(techId, input.sourceId),
+    );
+  }
+  statements.push(
+    db
+      .prepare(
+        "UPDATE tech_subcategories SET subcategory_id = ? WHERE subcategory_id = ?",
+      )
+      .bind(input.intoId, input.sourceId),
+    db.prepare("DELETE FROM subcategories WHERE id = ?").bind(input.sourceId),
+  );
+  await db.batch(statements);
+  return { ok: true };
+}
+
+function subcategoryMergeStatements(
+  db: D1Database,
+  input: {
+    intoCategoryId: string;
+    techIds: readonly string[];
+    now: string;
+  },
+): D1PreparedStatement[] {
+  if (input.techIds.length === 0) {
+    return [];
+  }
+  const marks = input.techIds.map(() => "?").join(", ");
+  return [
     db
       .prepare(
         `UPDATE techs
-         SET subcategory_id = ?, classified_by = 'user', updated_at = ?
-         WHERE subcategory_id = ?`,
+         SET category_id = ?, classified_by = 'user', updated_at = ?
+         WHERE id IN (${marks})`,
       )
-      .bind(input.intoId, input.now, input.sourceId),
-    db.prepare("DELETE FROM subcategories WHERE id = ?").bind(input.sourceId),
-  ]);
-  return { ok: true };
+      .bind(input.intoCategoryId, input.now, ...input.techIds),
+  ];
 }
 
 function isUnique(error: unknown): boolean {

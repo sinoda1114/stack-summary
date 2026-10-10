@@ -29,7 +29,7 @@ export function scoreClassification(
     if (sample.predicted.categoryId === sample.expected.categoryId) {
       categoryHits += 1;
     }
-    if (sample.predicted.subcategoryId === sample.expected.subcategoryId) {
+    if (sameSubcategories(sample.expected, sample.predicted)) {
       subcategoryHits += 1;
     }
   }
@@ -47,4 +47,27 @@ export function scoreClassification(
       categoryRate >= PROVISIONAL_CATEGORY_TARGET &&
       subcategoryRate >= PROVISIONAL_SUBCATEGORY_TARGET,
   };
+}
+
+function sameSubcategories(
+  expected: {
+    subcategoryId: string | null;
+    subcategoryIds?: readonly string[];
+  },
+  predicted: {
+    subcategoryId: string | null;
+    subcategoryIds?: readonly string[];
+  },
+): boolean {
+  return subcategoryKey(expected) === subcategoryKey(predicted);
+}
+
+function subcategoryKey(label: {
+  subcategoryId: string | null;
+  subcategoryIds?: readonly string[];
+}): string {
+  if (label.subcategoryIds !== undefined) {
+    return [...label.subcategoryIds].sort().join("\n");
+  }
+  return label.subcategoryId ?? "";
 }

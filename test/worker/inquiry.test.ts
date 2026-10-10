@@ -16,6 +16,8 @@ describe("メモと技術への問い合わせ", () => {
       env.DB.prepare("DELETE FROM memo_tags"),
       env.DB.prepare("DELETE FROM memo_urls"),
       env.DB.prepare("DELETE FROM memo_similars"),
+      env.DB.prepare("DELETE FROM tech_relations"),
+      env.DB.prepare("DELETE FROM tech_subcategories"),
       env.DB.prepare("DELETE FROM tech_tags"),
       env.DB.prepare("DELETE FROM tech_aliases"),
       env.DB.prepare("DELETE FROM memos"),

@@ -6,6 +6,7 @@ import {
   type StructuredGenerator,
 } from "../../src/worker/ai/model-output";
 import type { Classifier } from "../../src/worker/ai/classifier";
+import type { RelationJudge } from "../../src/worker/ai/relation-judge";
 import type { ClefDecider } from "../../src/worker/ai/clef";
 import {
   CLEF_CLASSIFY_VERSION,
@@ -37,6 +38,8 @@ describe("取り込み", () => {
       env.DB.prepare("DELETE FROM memo_tags"),
       env.DB.prepare("DELETE FROM memo_urls"),
       env.DB.prepare("DELETE FROM memo_similars"),
+      env.DB.prepare("DELETE FROM tech_relations"),
+      env.DB.prepare("DELETE FROM tech_subcategories"),
       env.DB.prepare("DELETE FROM tech_tags"),
       env.DB.prepare("DELETE FROM tech_aliases"),
       env.DB.prepare("DELETE FROM memos"),
@@ -72,22 +75,27 @@ describe("取り込み", () => {
     expect(stored?.skippedCount).toBe(1);
     expect(stored?.memoCount).toBe(1);
     const tech = await env.DB.prepare(
-      "SELECT name, status, status_by, subcategory_id, classified_by, prompt_version FROM techs",
+      `SELECT t.name, t.status, t.status_by, t.category_id, t.classified_by, t.prompt_version,
+              ts.subcategory_id
+       FROM techs t
+       JOIN tech_subcategories ts ON ts.tech_id = t.id`,
     ).first<{
       name: string;
       status: string;
       status_by: string;
-      subcategory_id: string;
+      category_id: string;
       classified_by: string;
       prompt_version: string;
+      subcategory_id: string;
     }>();
     expect(tech).toEqual({
       name: "Hono",
       status: "unrated",
       status_by: "model",
-      subcategory_id: "sub-hono",
+      category_id: "backend",
       classified_by: "model",
       prompt_version: CLEF_CLASSIFY_VERSION,
+      subcategory_id: "sub-hono",
     });
     const alias = await env.DB.prepare(
       "SELECT alias_key FROM tech_aliases WHERE alias_key = 'honojs'",
@@ -160,7 +168,6 @@ describe("取り込み", () => {
         scripted([
           splitBody("Hono を比較した", 0),
           extractBody("Hono", "comparison", ["oldname"], "Cloudflare"),
-          classifyExisting("sub-model"),
         ]).generator,
       ),
       importId,
@@ -179,13 +186,18 @@ describe("取り込み", () => {
     )
       .bind(keep, tech.id)
       .run();
-    await env.DB.prepare(
-      `UPDATE techs
-       SET subcategory_id = 'sub-user', classified_by = 'user'
-       WHERE id = ?`,
-    )
-      .bind(tech.id)
-      .run();
+    await env.DB.batch([
+      env.DB.prepare(
+        `UPDATE techs
+         SET category_id = 'backend', classified_by = 'user'
+         WHERE id = ?`,
+      ).bind(tech.id),
+      env.DB.prepare("DELETE FROM tech_subcategories WHERE tech_id = ?").bind(tech.id),
+      env.DB.prepare(
+        `INSERT INTO tech_subcategories (tech_id, subcategory_id)
+         VALUES (?, 'sub-user')`,
+      ).bind(tech.id),
+    ]);
 
     await executeImport(
       immediateStep(),
@@ -193,7 +205,6 @@ describe("取り込み", () => {
         scripted([
           splitBody("Hono を比較した", 0),
           extractBody("Hono", "subject", ["newname"], "Cloudflare"),
-          classifyExisting("sub-model"),
         ]).generator,
       ),
       importId,
@@ -209,13 +220,17 @@ describe("取り込み", () => {
     }>();
     expect(relation?.relation).toBe("comparison");
     const classified = await env.DB.prepare(
-      "SELECT subcategory_id, classified_by FROM techs WHERE id = ?",
+      `SELECT t.category_id, t.classified_by, ts.subcategory_id
+       FROM techs t
+       JOIN tech_subcategories ts ON ts.tech_id = t.id
+       WHERE t.id = ?`,
     )
       .bind(tech.id)
-      .first<{ subcategory_id: string; classified_by: string }>();
+      .first<{ category_id: string; classified_by: string; subcategory_id: string }>();
     expect(classified).toEqual({
-      subcategory_id: "sub-user",
+      category_id: "backend",
       classified_by: "user",
+      subcategory_id: "sub-user",
     });
   });
 
@@ -236,7 +251,6 @@ describe("取り込み", () => {
           split,
           extractBody("Hono", "subject", ["honojs"], "Cloudflare"),
           extractBody("Hono", "comparison", ["honox"], "Cloudflare"),
-          classifyExisting("sub-hono"),
         ]).generator,
       ),
       importId,
@@ -396,11 +410,73 @@ describe("取り込み", () => {
     expect(workflow.created[1]?.id).toBe(`${importId}-1`);
     expect(await nextWorkflowId(workflow, importId)).toBe(`${importId}-2`);
   });
+
+  it("Hono から Cloudflare Workers へ runs_on を書き、逆の組は足さない", async () => {
+    await insertSubcategory("sub-hono", "backend", "Web フレームワーク");
+    await insertSubcategory("sub-workers", "backend", "ランタイム");
+    const importId = await queue("Hono は Cloudflare Workers で動く");
+    const script = scripted([
+      splitBody("Hono は Cloudflare Workers で動く", 0),
+      JSON.stringify({
+        techs: [
+          {
+            name: "Hono",
+            relation: "subject",
+            aliases: ["honojs"],
+            tags: [{ name: "Cloudflare", kind: "vendor" }],
+          },
+          {
+            name: "Cloudflare Workers",
+            relation: "comparison",
+            aliases: [],
+            tags: [],
+          },
+        ],
+      }),
+      JSON.stringify({
+        pairs: [
+          { fromName: "honojs", toName: "Cloudflare Workers" },
+          { fromName: "Cloudflare Workers", toName: "Hono" },
+        ],
+      }),
+    ]);
+    await executeImport(
+      immediateStep(),
+      runner(script.generator, unclassifiedClassifier(), {
+        async judge(input) {
+          if (input.from.name === "Hono" && input.to.name === "Cloudflare Workers") {
+            return "runs_on";
+          }
+          return "none";
+        },
+      }),
+      importId,
+    );
+    const relation = await env.DB.prepare(
+      `SELECT f.name AS from_name, t.name AS to_name, r.kind
+       FROM tech_relations r
+       JOIN techs f ON f.id = r.from_tech_id
+       JOIN techs t ON t.id = r.to_tech_id`,
+    ).all<{ from_name: string; to_name: string; kind: string }>();
+    expect(relation.results).toEqual([
+      { from_name: "Hono", to_name: "Cloudflare Workers", kind: "runs_on" },
+    ]);
+    expect(script.requests.map((request) => request.model)).toEqual([
+      "test-model-heavy",
+      "test-model-light",
+      "test-model-light",
+    ]);
+  });
 });
 
 function runner(
   generator: StructuredGenerator,
   classifier: Classifier = unclassifiedClassifier(),
+  relationJudge: RelationJudge = {
+    async judge() {
+      return "none";
+    },
+  },
 ): ImportRunner {
   return {
     db: env.DB,
@@ -409,6 +485,7 @@ function runner(
     modelHeavy: "test-model-heavy",
     now: NOW,
     classifier,
+    relationJudge,
   };
 }
 
@@ -416,7 +493,7 @@ function unclassifiedClassifier(): Classifier {
   return {
     version: CLEF_CLASSIFY_VERSION,
     async classify() {
-      return { kind: "unclassified", confidence: 0 };
+      return { categoryId: null, subcategories: [], confidence: 0 };
     },
   };
 }
@@ -498,10 +575,6 @@ function extractBody(
 
 function emptyExtract(): string {
   return JSON.stringify({ techs: [] });
-}
-
-function classifyExisting(subcategoryId: string): string {
-  return JSON.stringify({ kind: "existing", subcategoryId, confidence: 0.2 });
 }
 
 async function queue(text: string): Promise<string> {

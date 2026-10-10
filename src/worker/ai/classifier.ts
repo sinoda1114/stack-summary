@@ -9,14 +9,22 @@ export type ClassifierInput = {
   }[];
 };
 
-export type ClassificationProposal =
-  | { kind: "existing"; subcategoryId: string; confidence: number }
-  | { kind: "new"; categoryId: string; name: string; confidence: number }
-  | { kind: "unclassified"; confidence: number };
+export type SubcategoryProposal =
+  | { kind: "existing"; subcategoryId: string }
+  | { kind: "new"; name: string };
+
+export type ClassificationProposal = {
+  categoryId: string | null;
+  subcategories: SubcategoryProposal[];
+  confidence: number;
+};
 
 export type AcceptedClassification =
-  | { kind: "existing"; subcategoryId: string }
-  | { kind: "new"; categoryId: string; name: string }
+  | {
+      kind: "classified";
+      categoryId: string;
+      subcategories: SubcategoryProposal[];
+    }
   | { kind: "unclassified" };
 
 export type Classifier = {
@@ -44,38 +52,69 @@ export function acceptClassification(
   proposal: ClassificationProposal,
   input: Pick<ClassifierInput, "categories" | "subcategories">,
 ): AcceptedClassification {
-  switch (proposal.kind) {
-    case "unclassified":
-      return { kind: "unclassified" };
-    case "existing":
-      if (
-        !input.subcategories.some(
-          (subcategory) => subcategory.id === proposal.subcategoryId,
-        )
-      ) {
-        return { kind: "unclassified" };
+  if (
+    proposal.categoryId === null ||
+    !input.categories.some((category) => category.id === proposal.categoryId)
+  ) {
+    return { kind: "unclassified" };
+  }
+  const categoryId = proposal.categoryId;
+  const subcategories: SubcategoryProposal[] = [];
+  const seen = new Set<string>();
+  for (const item of proposal.subcategories) {
+    const accepted = acceptSubcategory(item, categoryId, input.subcategories);
+    if (accepted === null) {
+      continue;
+    }
+    const key =
+      accepted.kind === "existing"
+        ? accepted.subcategoryId
+        : `new:${normalizedSubcategoryName(accepted.name)}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    subcategories.push(accepted);
+  }
+  if (proposal.subcategories.length > 0 && subcategories.length === 0) {
+    return { kind: "unclassified" };
+  }
+  return { kind: "classified", categoryId, subcategories };
+}
+
+function acceptSubcategory(
+  item: SubcategoryProposal,
+  categoryId: string,
+  subcategories: ClassifierInput["subcategories"],
+): SubcategoryProposal | null {
+  switch (item.kind) {
+    case "existing": {
+      const found = subcategories.find(
+        (subcategory) => subcategory.id === item.subcategoryId,
+      );
+      if (found === undefined || found.categoryId !== categoryId) {
+        return null;
       }
-      return { kind: "existing", subcategoryId: proposal.subcategoryId };
-    case "new":
-      if (
-        !input.categories.some(
-          (category) => category.id === proposal.categoryId,
-        )
-      ) {
-        return { kind: "unclassified" };
-      }
-      const normalized = normalizedSubcategoryName(proposal.name);
+      return { kind: "existing", subcategoryId: found.id };
+    }
+    case "new": {
+      const normalized = normalizedSubcategoryName(item.name);
       if (normalized.length === 0 || CATCH_ALL_NAMES.has(normalized)) {
-        return { kind: "unclassified" };
+        return null;
       }
-      return {
-        kind: "new",
-        categoryId: proposal.categoryId,
-        name: proposal.name,
-      };
+      const existing = subcategories.find(
+        (subcategory) =>
+          subcategory.categoryId === categoryId &&
+          normalizedSubcategoryName(subcategory.name) === normalized,
+      );
+      if (existing !== undefined) {
+        return { kind: "existing", subcategoryId: existing.id };
+      }
+      return { kind: "new", name: item.name.trim() };
+    }
     default: {
-      const unexpected: never = proposal;
-      throw new Error(`未知の分類提案です: ${String(unexpected)}`);
+      const unexpected: never = item;
+      throw new Error(`未知の小分類提案です: ${String(unexpected)}`);
     }
   }
 }

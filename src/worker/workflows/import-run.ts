@@ -12,6 +12,7 @@ import {
   splitImport,
   type ImportRunner,
 } from "./import-steps";
+import { relateSavedMemos } from "./relate-techs";
 
 export type ImportStepRunner = {
   do<T>(
@@ -50,6 +51,9 @@ export async function executeImport(
     );
     await step.do("classify", IMPORT_STEP_RETRY, () =>
       classifyImportTechs(runner, runner.classifier, applied.techs),
+    );
+    await step.do("relate", IMPORT_STEP_RETRY, () =>
+      relateSavedMemos(runner, runner.relationJudge, memos),
     );
     await step.do("finish", IMPORT_STEP_RETRY, async () => {
       await finishImport(runner, importId, {

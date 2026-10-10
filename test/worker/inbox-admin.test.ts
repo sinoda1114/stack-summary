@@ -25,6 +25,8 @@ describe("受け箱と分類の管理", () => {
       env.DB.prepare("DELETE FROM memo_tags"),
       env.DB.prepare("DELETE FROM memo_urls"),
       env.DB.prepare("DELETE FROM memo_similars"),
+      env.DB.prepare("DELETE FROM tech_relations"),
+      env.DB.prepare("DELETE FROM tech_subcategories"),
       env.DB.prepare("DELETE FROM tech_tags"),
       env.DB.prepare("DELETE FROM tech_aliases"),
       env.DB.prepare("DELETE FROM memos"),
@@ -68,21 +70,21 @@ describe("受け箱と分類の管理", () => {
     });
     expect(merged).toEqual({ ok: true });
     const into = await env.DB.prepare(
-      "SELECT status, reason, reason_by, subcategory_id, classified_by FROM techs WHERE id = ?",
+      "SELECT status, reason, reason_by, category_id, classified_by FROM techs WHERE id = ?",
     )
       .bind(intoId)
       .first<{
         status: string;
         reason: string;
         reason_by: string;
-        subcategory_id: string | null;
+        category_id: string | null;
         classified_by: string | null;
       }>();
     expect(into).toEqual({
       status: "adopted",
       reason: "消す側",
       reason_by: "model",
-      subcategory_id: null,
+      category_id: null,
       classified_by: "user",
     });
     expect(await techCount()).toBe(1);
@@ -178,11 +180,18 @@ describe("受け箱と分類の管理", () => {
       await mergeSubcategory(env.DB, { sourceId: "sub-a", intoId: "sub-b", now: NOW }),
     ).toEqual({ ok: true });
     const tech = await env.DB.prepare(
-      "SELECT subcategory_id, classified_by FROM techs WHERE id = ?",
+      `SELECT t.category_id, t.classified_by, ts.subcategory_id
+       FROM techs t
+       JOIN tech_subcategories ts ON ts.tech_id = t.id
+       WHERE t.id = ?`,
     )
       .bind(techId)
-      .first<{ subcategory_id: string; classified_by: string }>();
-    expect(tech).toEqual({ subcategory_id: "sub-b", classified_by: "user" });
+      .first<{ category_id: string; classified_by: string; subcategory_id: string }>();
+    expect(tech).toEqual({
+      category_id: "backend",
+      classified_by: "user",
+      subcategory_id: "sub-b",
+    });
     expect(
       await env.DB.prepare("SELECT id FROM subcategories WHERE id = 'sub-a'").first(),
     ).toBeNull();
@@ -251,9 +260,13 @@ async function insertTech(
   const key = aliasKey(name);
   await env.DB.prepare(
     `INSERT INTO techs (
-       id, name, name_key, subcategory_id, status, status_by, reason, reason_by,
+       id, name, name_key, category_id, status, status_by, reason, reason_by,
        classified_by, created_at, updated_at
-     ) VALUES (?, ?, ?, ?, ?, 'model', ?, ?, ?, ?, ?)`,
+     ) VALUES (
+       ?, ?, ?,
+       (SELECT category_id FROM subcategories WHERE id = ?),
+       ?, 'model', ?, ?, ?, ?, ?
+     )`,
   )
     .bind(
       id,
@@ -268,6 +281,13 @@ async function insertTech(
       NOW,
     )
     .run();
+  if (subcategoryId !== null) {
+    await env.DB.prepare(
+      "INSERT INTO tech_subcategories (tech_id, subcategory_id) VALUES (?, ?)",
+    )
+      .bind(id, subcategoryId)
+      .run();
+  }
   return id;
 }
 

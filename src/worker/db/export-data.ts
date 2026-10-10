@@ -7,6 +7,8 @@ const TABLES = [
   "subcategories",
   "techs",
   "tech_aliases",
+  "tech_subcategories",
+  "tech_relations",
   "memo_techs",
   "memo_mentions",
   "tags",

@@ -108,7 +108,7 @@ function CategoryBody(props: { category: OverviewCategory }) {
     <>
       {props.category.subcategories.map((subcategory) => (
         <Stack key={subcategory.id} gap="xs" className="subcategory">
-          {showsSubcategoryName(props.category) ? (
+          {subcategory.name.length > 0 && showsSubcategoryName(props.category) ? (
             <Text className="subhead">
               <Link to={`/subcategories/${subcategory.id}`}>{subcategory.name}</Link>
             </Text>

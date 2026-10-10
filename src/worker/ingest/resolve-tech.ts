@@ -348,8 +348,8 @@ export function claimTechInsert(
   return db
     .prepare(
       `INSERT INTO techs (
-         id, name, name_key, subcategory_id, status, status_by, created_at, updated_at
-       ) VALUES (?, ?, ?, NULL, 'unrated', 'model', ?, ?)`,
+         id, name, name_key, status, status_by, created_at, updated_at
+       ) VALUES (?, ?, ?, 'unrated', 'model', ?, ?)`,
     )
     .bind(techId, entry.label, entry.key, now, now);
 }

@@ -5,6 +5,7 @@ import {
 } from "cloudflare:workers";
 import { clefBinding, clefDecider } from "../ai/clef";
 import { clefClassifier } from "../ai/clef-classifier";
+import { clefRelationJudge } from "../ai/relation-judge";
 import { nearTechMatcher } from "../ai/clef-name-match";
 import { geminiGeneratorFromApiKey } from "../ai/gemini";
 import { readGeminiRuntime } from "../env";
@@ -34,6 +35,7 @@ export class ImportWorkflow extends WorkflowEntrypoint<Env, ImportWorkflowParams
         modelHeavy: runtime.modelHeavy,
         now: new Date().toISOString(),
         classifier: clefClassifier(decider),
+        relationJudge: clefRelationJudge(decider),
         matchNear: nearTechMatcher(decider),
       },
       event.payload.importId,

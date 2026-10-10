@@ -13,6 +13,8 @@ const TABLES = [
   "subcategories",
   "tags",
   "tech_aliases",
+  "tech_relations",
+  "tech_subcategories",
   "tech_tags",
   "techs",
 ] as const;

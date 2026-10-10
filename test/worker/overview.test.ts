@@ -13,6 +13,8 @@ describe("全体図と技術詳細", () => {
       env.DB.prepare("DELETE FROM memo_tags"),
       env.DB.prepare("DELETE FROM memo_urls"),
       env.DB.prepare("DELETE FROM memo_similars"),
+      env.DB.prepare("DELETE FROM tech_relations"),
+      env.DB.prepare("DELETE FROM tech_subcategories"),
       env.DB.prepare("DELETE FROM tech_tags"),
       env.DB.prepare("DELETE FROM tech_aliases"),
       env.DB.prepare("DELETE FROM memos"),
@@ -82,7 +84,7 @@ describe("全体図と技術詳細", () => {
     const patched = await patchTech(
       env.DB,
       techId,
-      { status: "adopted", reason: "本番で使う", subcategoryId },
+      { status: "adopted", reason: "本番で使う", subcategoryIds: [subcategoryId] },
       NOW,
     );
     expect(patched).toBe(true);
@@ -126,10 +128,15 @@ async function insertTech(
   const id = crypto.randomUUID();
   await env.DB.prepare(
     `INSERT INTO techs (
-       id, name, name_key, subcategory_id, status, status_by, reason, reason_by, created_at, updated_at
-     ) VALUES (?, ?, ?, ?, 'unrated', 'model', ?, ?, ?, ?)`,
+       id, name, name_key, category_id, status, status_by, reason, reason_by, created_at, updated_at
+     ) VALUES (?, ?, ?, (SELECT category_id FROM subcategories WHERE id = ?), 'unrated', 'model', ?, ?, ?, ?)`,
   )
     .bind(id, name, name.toLowerCase(), subcategoryId, reason, reason === null ? null : "model", NOW, NOW)
+    .run();
+  await env.DB.prepare(
+    "INSERT INTO tech_subcategories (tech_id, subcategory_id) VALUES (?, ?)",
+  )
+    .bind(id, subcategoryId)
     .run();
   return id;
 }

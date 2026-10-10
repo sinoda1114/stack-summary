@@ -18,6 +18,7 @@ const EXACT_CLIENT_PATHS = new Set([
   "/taxonomy",
   "/export",
   "/memos",
+  "/relations",
 ]);
 
 const CLIENT_PREFIXES = ["/techs/", "/subcategories/", "/memos/"];

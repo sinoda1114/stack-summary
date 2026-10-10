@@ -1,4 +1,6 @@
+import type { RelationKind } from "../../shared/relations";
 import { aliasKey } from "../ingest/normalize";
+import { relationPairKey } from "./tech-relations";
 
 export type MergeFailure = "self_merge" | "not_found" | "reason_conflict";
 
@@ -6,7 +8,7 @@ type TechRow = {
   id: string;
   name: string;
   name_key: string;
-  subcategory_id: string | null;
+  category_id: string | null;
   classified_by: string | null;
   reason: string | null;
   reason_by: string | null;
@@ -33,11 +35,12 @@ export async function mergeTech(
   if (reason === null) {
     return { ok: false, code: "reason_conflict" };
   }
+  const movedRelations = await relationsToMove(db, source.id, into.id);
   const statements: D1PreparedStatement[] = [
     db
       .prepare(
         `UPDATE techs
-         SET subcategory_id = ?,
+         SET category_id = ?,
              classified_by = ?,
              reason = ?,
              reason_by = ?,
@@ -45,7 +48,7 @@ export async function mergeTech(
          WHERE id = ?`,
       )
       .bind(
-        into.subcategory_id,
+        into.category_id,
         into.classified_by,
         reason.reason,
         reason.reasonBy,
@@ -91,6 +94,24 @@ export async function mergeTech(
         .bind(nameKey, source.name, into.id),
     );
   }
+  statements.push(
+    db
+      .prepare(
+        `DELETE FROM tech_relations
+         WHERE from_tech_id = ? OR to_tech_id = ?`,
+      )
+      .bind(source.id, source.id),
+  );
+  for (const relation of movedRelations) {
+    statements.push(
+      db
+        .prepare(
+          `INSERT INTO tech_relations (from_tech_id, to_tech_id, kind)
+           VALUES (?, ?, ?)`,
+        )
+        .bind(relation.fromTechId, relation.toTechId, relation.kind),
+    );
+  }
   statements.push(db.prepare("DELETE FROM techs WHERE id = ?").bind(source.id));
   await db.batch(statements);
   return { ok: true };
@@ -118,6 +139,49 @@ function chosenReason(
   return { reason: into.reason, reasonBy: into.reason_by };
 }
 
+async function relationsToMove(
+  db: D1Database,
+  sourceId: string,
+  intoId: string,
+): Promise<{ fromTechId: string; toTechId: string; kind: RelationKind }[]> {
+  const sourceRows = await db
+    .prepare(
+      `SELECT from_tech_id, to_tech_id, kind FROM tech_relations
+       WHERE from_tech_id = ? OR to_tech_id = ?`,
+    )
+    .bind(sourceId, sourceId)
+    .all<{ from_tech_id: string; to_tech_id: string; kind: RelationKind }>();
+  const intoRows = await db
+    .prepare(
+      `SELECT from_tech_id, to_tech_id FROM tech_relations
+       WHERE from_tech_id = ? OR to_tech_id = ?`,
+    )
+    .bind(intoId, intoId)
+    .all<{ from_tech_id: string; to_tech_id: string }>();
+  const occupied = new Set<string>();
+  for (const row of intoRows.results) {
+    if (row.from_tech_id === sourceId || row.to_tech_id === sourceId) {
+      continue;
+    }
+    occupied.add(relationPairKey(row.from_tech_id, row.to_tech_id));
+  }
+  const moved: { fromTechId: string; toTechId: string; kind: RelationKind }[] = [];
+  for (const row of sourceRows.results) {
+    const fromTechId = row.from_tech_id === sourceId ? intoId : row.from_tech_id;
+    const toTechId = row.to_tech_id === sourceId ? intoId : row.to_tech_id;
+    if (fromTechId === toTechId) {
+      continue;
+    }
+    const key = relationPairKey(fromTechId, toTechId);
+    if (occupied.has(key)) {
+      continue;
+    }
+    occupied.add(key);
+    moved.push({ fromTechId, toTechId, kind: row.kind });
+  }
+  return moved;
+}
+
 function hasText(value: string | null): boolean {
   return value !== null && value.trim().length > 0;
 }
@@ -125,7 +189,7 @@ function hasText(value: string | null): boolean {
 async function loadTech(db: D1Database, id: string): Promise<TechRow | null> {
   return db
     .prepare(
-      `SELECT id, name, name_key, subcategory_id, classified_by, reason, reason_by
+      `SELECT id, name, name_key, category_id, classified_by, reason, reason_by
        FROM techs WHERE id = ?`,
     )
     .bind(id)
