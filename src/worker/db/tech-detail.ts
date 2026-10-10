@@ -155,46 +155,38 @@ export async function patchTech(
     assignments.push("subcategory_id = ?", "classified_by = 'user'");
     values.push(patch.subcategoryId);
   }
-  await db
-    .prepare(`UPDATE techs SET ${assignments.join(", ")} WHERE id = ?`)
-    .bind(...values, id)
-    .run();
+  const statements: D1PreparedStatement[] = [
+    db
+      .prepare(`UPDATE techs SET ${assignments.join(", ")} WHERE id = ?`)
+      .bind(...values, id),
+  ];
   if (patch.tags !== undefined) {
-    await replaceUserTags(db, id, patch.tags);
-  }
-  return true;
-}
-
-async function replaceUserTags(
-  db: D1Database,
-  techId: string,
-  tags: readonly { name: string; kind: "topic" | "vendor" | "project" }[],
-): Promise<void> {
-  const tagIds: string[] = [];
-  for (const tag of tags) {
-    if (tag.name.trim().length === 0) {
-      continue;
+    const tagIds: string[] = [];
+    for (const tag of patch.tags) {
+      if (tag.name.trim().length === 0) {
+        continue;
+      }
+      tagIds.push(await upsertTag(db, tag));
     }
-    tagIds.push(await upsertTag(db, tag));
-  }
-  await db
-    .prepare("DELETE FROM tech_tags WHERE tech_id = ? AND source = 'user'")
-    .bind(techId)
-    .run();
-  if (tagIds.length === 0) {
-    return;
-  }
-  await db.batch(
-    tagIds.map((tagId) =>
+    statements.push(
       db
-        .prepare(
-          `INSERT INTO tech_tags (tech_id, tag_id, source)
-           VALUES (?, ?, 'user')
-           ON CONFLICT(tech_id, tag_id) DO NOTHING`,
-        )
-        .bind(techId, tagId),
-    ),
-  );
+        .prepare("DELETE FROM tech_tags WHERE tech_id = ? AND source = 'user'")
+        .bind(id),
+    );
+    for (const tagId of tagIds) {
+      statements.push(
+        db
+          .prepare(
+            `INSERT INTO tech_tags (tech_id, tag_id, source)
+             VALUES (?, ?, 'user')
+             ON CONFLICT(tech_id, tag_id) DO NOTHING`,
+          )
+          .bind(id, tagId),
+      );
+    }
+  }
+  await db.batch(statements);
+  return true;
 }
 
 export async function loadSubcategoryComparison(db: D1Database, id: string) {
