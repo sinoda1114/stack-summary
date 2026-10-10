@@ -14,7 +14,11 @@ export const chatUsageGuide = [
   "狭い幅の案内は、全体図・取り込み・メモだけを出す。",
 ].join("\n");
 
-const sharedRules = [
+export const chatSystemPrompt = [
+  "渡された節だけを材料にして答える。",
+  "使い方の節は、このアプリの操作の短い案内にだけ使う。",
+  "根拠の節は、取り込んだメモと技術スタックの質問にだけ使う。",
+  "節が無い話題は答えない。使い方の節から、技術やメモの有無を判断しない。",
   "材料に無いことは、あるように答えない。",
   "答えが材料に無ければ、分かりません、と返す。推測で埋めない。",
   "やり取りの過去の回答は材料にしない。",
@@ -22,48 +26,12 @@ const sharedRules = [
   "reply は日本語で、必要なことだけを短く書く。",
 ].join("\n");
 
-const openPrompt = [
-  "渡された使い方と根拠だけを材料にして答える。",
-  "使い方の節は、このアプリの操作の短い案内にだけ使う。",
-  "根拠の節は、取り込んだメモと技術スタックの質問にだけ使う。",
-  "使い方の節から、技術やメモの有無を判断しない。",
-  sharedRules,
-].join("\n");
-
-const stackPrompt = [
-  "渡された根拠だけを使って、取り込んだメモと技術スタックの質問に答える。",
-  sharedRules,
-].join("\n");
-
-const usagePrompt = [
-  "渡された使い方だけを使って、このアプリの操作を短く案内する。",
-  "使い方に無い操作は案内しない。技術の採否やメモの中身は書かない。",
-  sharedRules,
-].join("\n");
-
 export const chatReplySchema = z.strictObject({
   reply: z.string().trim().min(1).max(1200),
 });
 
-export type AnswerIntent = Exclude<ChatIntent, "out_of_scope"> | null;
-
-export function chatSystemPrompt(intent: AnswerIntent): string {
-  switch (intent) {
-    case "stack":
-      return stackPrompt;
-    case "usage":
-      return usagePrompt;
-    case null:
-      return openPrompt;
-    default: {
-      const neverIntent: never = intent;
-      return neverIntent;
-    }
-  }
-}
-
 export function chatContents(input: {
-  intent: AnswerIntent;
+  intent: ChatIntent | null;
   usage: string;
   evidence: string;
   messages: readonly ChatTurn[];

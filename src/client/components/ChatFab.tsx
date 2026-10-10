@@ -1,7 +1,7 @@
 import { Affix, Button, CloseButton, Group, Paper, Stack, Text, Textarea } from "@mantine/core";
 import { useEffect, useRef, useState } from "react";
 import { askChat } from "../api";
-import type { ChatTurn } from "../../shared/chat";
+import { CHAT_CONTENT_LIMIT, CHAT_MESSAGE_LIMIT, type ChatTurn } from "../../shared/chat";
 
 export function ChatFab() {
   const [open, setOpen] = useState(false);
@@ -54,7 +54,7 @@ export function ChatFab() {
     setDraft("");
     setPending(true);
     setError(null);
-    const result = await askChat(next);
+    const result = await askChat(next.slice(-CHAT_MESSAGE_LIMIT));
     sending.current = false;
     setPending(false);
     if (!result.success) {
@@ -151,6 +151,7 @@ export function ChatFab() {
                   onChange={(event) => setDraft(event.currentTarget.value)}
                   minRows={2}
                   maxRows={4}
+                  maxLength={CHAT_CONTENT_LIMIT}
                 />
                 <Group justify="flex-end">
                   <Button type="submit" variant="default" disabled={pending || draft.trim().length === 0}>

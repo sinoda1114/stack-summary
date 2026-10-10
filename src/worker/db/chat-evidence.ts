@@ -65,7 +65,9 @@ export function questionTokens(question: string): string[] {
   for (const part of question.split(/[\s、。！？!?，,.・/／「」『』（）()【】[\]"'`：:]+/u)) {
     add(part);
   }
-  return found.slice(0, TOKEN_LIMIT);
+  return found
+    .sort((left, right) => right.length - left.length || left.localeCompare(right))
+    .slice(0, TOKEN_LIMIT);
 }
 
 export async function loadChatEvidence(db: D1Database, question: string): Promise<string> {
@@ -80,22 +82,22 @@ export async function loadChatEvidence(db: D1Database, question: string): Promis
       listMemoTitles(db),
       findHits(db, tokens),
     ]);
-  const text = [
+  const matched = [
+    "一致した技術:",
+    hits.techs.length === 0 ? "なし" : hits.techs.map((tech) => `- ${formatTech(tech)}`).join("\n"),
+    "一致したメモ:",
+    hits.memos.length === 0 ? "なし" : hits.memos.map((memo) => formatMemo(memo)).join("\n"),
+  ].join("\n");
+  const catalogText = [
     `件数: メモ ${memoCount}、技術 ${techCount}`,
     `大分類: ${categories.length === 0 ? "なし" : categories.join("、")}`,
     `小分類: ${subcategories.length === 0 ? "なし" : subcategories.join("、")}`,
     "技術一覧:",
-    catalog.length === 0 ? "なし" : catalog.map((tech) => `- ${formatTech(tech, false)}`).join("\n"),
+    catalog.length === 0 ? "なし" : catalog.map((tech) => `- ${formatCatalog(tech)}`).join("\n"),
     "メモ一覧:",
     titles.length === 0 ? "なし" : titles.map((title) => `- ${title}`).join("\n"),
-    "一致した技術:",
-    hits.techs.length === 0
-      ? "なし"
-      : hits.techs.map((tech) => `- ${formatTech(tech, true)}`).join("\n"),
-    "一致したメモ:",
-    hits.memos.length === 0 ? "なし" : hits.memos.map((memo) => formatMemo(memo)).join("\n"),
   ].join("\n");
-  return text.length <= EVIDENCE_LIMIT ? text : `${text.slice(0, EVIDENCE_LIMIT)}…`;
+  return joinEvidence(matched, catalogText);
 }
 
 async function countRows(db: D1Database, table: "memos" | "techs"): Promise<number> {
@@ -176,51 +178,36 @@ async function findHits(
   db: D1Database,
   tokens: string[],
 ): Promise<{ techs: TechHit[]; memos: MemoHit[] }> {
-  const techs: TechHit[] = [];
-  const memos: MemoHit[] = [];
-  const techNames = new Set<string>();
-  const memoIds = new Set<string>();
-  for (const token of tokens) {
-    if (techs.length < MATCH_LIMIT) {
-      for (const tech of await matchTechs(db, token, MATCH_LIMIT)) {
-        const key = tech.name.toLocaleLowerCase();
-        if (techNames.has(key) || techs.length >= MATCH_LIMIT) {
-          continue;
-        }
-        techNames.add(key);
-        techs.push(tech);
-      }
-    }
-    if (memos.length < MATCH_LIMIT) {
-      for (const memo of await matchMemos(db, token, MATCH_LIMIT)) {
-        if (memoIds.has(memo.id) || memos.length >= MATCH_LIMIT) {
-          continue;
-        }
-        memoIds.add(memo.id);
-        memos.push(memo);
-      }
-    }
+  if (tokens.length === 0) {
+    return { techs: [], memos: [] };
   }
+  const [techs, memos] = await Promise.all([matchTechs(db, tokens), matchMemos(db, tokens)]);
   return { techs, memos };
 }
 
-async function matchTechs(db: D1Database, token: string, limit: number): Promise<TechHit[]> {
+async function matchTechs(db: D1Database, tokens: string[]): Promise<TechHit[]> {
+  const score = tokenScore(tokens, [
+    "t.name",
+    "COALESCE(t.reason, '')",
+    "COALESCE((SELECT group_concat(a.alias, ' ') FROM tech_aliases a WHERE a.tech_id = t.id), '')",
+  ]);
+  const where = tokenWhere(tokens, [
+    "t.name",
+    "COALESCE(t.reason, '')",
+    "COALESCE((SELECT group_concat(a.alias, ' ') FROM tech_aliases a WHERE a.tech_id = t.id), '')",
+  ]);
   const listed = await db
     .prepare(
-      `SELECT t.id, t.name, t.status, t.reason, c.name AS category_name, s.name AS subcategory_name
+      `SELECT t.id, t.name, t.status, t.reason, c.name AS category_name, s.name AS subcategory_name,
+              (${score.sql}) AS score
        FROM techs t
        LEFT JOIN subcategories s ON s.id = t.subcategory_id
        LEFT JOIN categories c ON c.id = s.category_id
-       WHERE instr(lower(t.name), lower(?)) > 0
-          OR instr(lower(COALESCE(t.reason, '')), lower(?)) > 0
-          OR EXISTS (
-            SELECT 1 FROM tech_aliases a
-            WHERE a.tech_id = t.id AND instr(lower(a.alias), lower(?)) > 0
-          )
-       ORDER BY t.name
+       WHERE ${where.sql}
+       ORDER BY score DESC, t.name
        LIMIT ?`,
     )
-    .bind(token, token, token, limit)
+    .bind(...score.binds, ...where.binds, MATCH_LIMIT)
     .all<{
       id: string;
       name: string;
@@ -229,7 +216,14 @@ async function matchTechs(db: D1Database, token: string, limit: number): Promise
       category_name: string | null;
       subcategory_name: string | null;
     }>();
-  const aliases = await aliasesByTech(db, listed.results.map((row) => row.id));
+  const aliases = await groupedNames(
+    db,
+    `SELECT tech_id AS owner_id, alias AS label FROM tech_aliases
+     WHERE tech_id IN (${listed.results.map(() => "?").join(", ")})
+     ORDER BY alias`,
+    listed.results.map((row) => row.id),
+    5,
+  );
   return listed.results.map((row) => ({
     name: row.name,
     status: row.status,
@@ -240,42 +234,29 @@ async function matchTechs(db: D1Database, token: string, limit: number): Promise
   }));
 }
 
-async function aliasesByTech(db: D1Database, techIds: string[]): Promise<Map<string, string[]>> {
-  const grouped = new Map<string, string[]>();
-  if (techIds.length === 0) {
-    return grouped;
-  }
-  const placeholders = techIds.map(() => "?").join(", ");
+async function matchMemos(db: D1Database, tokens: string[]): Promise<MemoHit[]> {
+  const score = tokenScore(tokens, ["title", "body"]);
+  const where = tokenWhere(tokens, ["title", "body"]);
   const listed = await db
     .prepare(
-      `SELECT tech_id, alias FROM tech_aliases
-       WHERE tech_id IN (${placeholders})
-       ORDER BY alias`,
-    )
-    .bind(...techIds)
-    .all<{ tech_id: string; alias: string }>();
-  for (const row of listed.results) {
-    const current = grouped.get(row.tech_id) ?? [];
-    if (current.length < 5) {
-      current.push(row.alias);
-      grouped.set(row.tech_id, current);
-    }
-  }
-  return grouped;
-}
-
-async function matchMemos(db: D1Database, token: string, limit: number): Promise<MemoHit[]> {
-  const listed = await db
-    .prepare(
-      `SELECT id, title, body
+      `SELECT id, title, body, (${score.sql}) AS score
        FROM memos
-       WHERE instr(lower(title), lower(?)) > 0 OR instr(lower(body), lower(?)) > 0
-       ORDER BY created_at DESC, id DESC
+       WHERE ${where.sql}
+       ORDER BY score DESC, created_at DESC, id DESC
        LIMIT ?`,
     )
-    .bind(token, token, limit)
+    .bind(...score.binds, ...where.binds, MATCH_LIMIT)
     .all<{ id: string; title: string; body: string }>();
-  const techs = await techNamesByMemo(db, listed.results.map((row) => row.id));
+  const techs = await groupedNames(
+    db,
+    `SELECT mt.memo_id AS owner_id, t.name AS label
+     FROM memo_techs mt
+     JOIN techs t ON t.id = mt.tech_id
+     WHERE mt.memo_id IN (${listed.results.map(() => "?").join(", ")})
+     ORDER BY t.name`,
+    listed.results.map((row) => row.id),
+    8,
+  );
   return listed.results.map((row) => ({
     id: row.id,
     title: row.title,
@@ -284,45 +265,87 @@ async function matchMemos(db: D1Database, token: string, limit: number): Promise
   }));
 }
 
-async function techNamesByMemo(db: D1Database, memoIds: string[]): Promise<Map<string, string[]>> {
+async function groupedNames(
+  db: D1Database,
+  sql: string,
+  ids: string[],
+  limit: number,
+): Promise<Map<string, string[]>> {
   const grouped = new Map<string, string[]>();
-  if (memoIds.length === 0) {
+  if (ids.length === 0) {
     return grouped;
   }
-  const placeholders = memoIds.map(() => "?").join(", ");
   const listed = await db
-    .prepare(
-      `SELECT mt.memo_id, t.name
-       FROM memo_techs mt
-       JOIN techs t ON t.id = mt.tech_id
-       WHERE mt.memo_id IN (${placeholders})
-       ORDER BY t.name`,
-    )
-    .bind(...memoIds)
-    .all<{ memo_id: string; name: string }>();
+    .prepare(sql)
+    .bind(...ids)
+    .all<{ owner_id: string; label: string }>();
   for (const row of listed.results) {
-    const current = grouped.get(row.memo_id) ?? [];
-    if (current.length < 8) {
-      current.push(row.name);
-      grouped.set(row.memo_id, current);
+    const current = grouped.get(row.owner_id) ?? [];
+    if (current.length < limit) {
+      current.push(row.label);
+      grouped.set(row.owner_id, current);
     }
   }
   return grouped;
 }
 
-function formatTech(tech: TechHit, withReason: boolean): string {
-  const place =
-    tech.categoryName === null
-      ? "未分類"
-      : `${tech.categoryName} / ${tech.subcategoryName ?? "未分類"}`;
-  const parts = [tech.name, place, statusLabel(tech.status)];
-  if (withReason) {
-    parts.push(tech.reason === null ? "理由: なし" : `理由: ${clip(tech.reason, REASON_LIMIT)}`);
-    if (tech.aliases.length > 0) {
-      parts.push(`別名: ${tech.aliases.join("、")}`);
-    }
+function tokenWhere(tokens: string[], columns: string[]): { sql: string; binds: string[] } {
+  const binds: string[] = [];
+  const parts = tokens.flatMap((token) =>
+    columns.map((column) => {
+      binds.push(token);
+      return `instr(lower(${column}), lower(?)) > 0`;
+    }),
+  );
+  return { sql: parts.join(" OR "), binds };
+}
+
+function tokenScore(tokens: string[], columns: string[]): { sql: string; binds: string[] } {
+  const binds: string[] = [];
+  const terms = tokens.map((token) => {
+    const checks = columns.map((column) => {
+      binds.push(token);
+      return `instr(lower(${column}), lower(?)) > 0`;
+    });
+    return `(CASE WHEN ${checks.join(" OR ")} THEN ${token.length} ELSE 0 END)`;
+  });
+  return { sql: terms.join(" + "), binds };
+}
+
+function formatCatalog(tech: TechHit): string {
+  return [tech.name, techPlace(tech), statusLabel(tech.status)].join(" | ");
+}
+
+function formatTech(tech: TechHit): string {
+  const parts = [
+    tech.name,
+    techPlace(tech),
+    statusLabel(tech.status),
+    tech.reason === null ? "理由: なし" : `理由: ${clip(tech.reason, REASON_LIMIT)}`,
+  ];
+  if (tech.aliases.length > 0) {
+    parts.push(`別名: ${tech.aliases.join("、")}`);
   }
   return parts.join(" | ");
+}
+
+function techPlace(tech: TechHit): string {
+  if (tech.categoryName === null) {
+    return "未分類";
+  }
+  return `${tech.categoryName} / ${tech.subcategoryName ?? "未分類"}`;
+}
+
+function joinEvidence(matched: string, catalog: string): string {
+  const combined = `${matched}\n${catalog}`;
+  if (combined.length <= EVIDENCE_LIMIT) {
+    return combined;
+  }
+  const room = EVIDENCE_LIMIT - matched.length - 1;
+  if (room < 40) {
+    return `${matched}\n一覧は省略`;
+  }
+  return `${matched}\n${catalog.slice(0, room)}…\n一覧はここで打ち切り`;
 }
 
 function formatMemo(memo: MemoHit): string {

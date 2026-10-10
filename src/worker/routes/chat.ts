@@ -1,13 +1,10 @@
 import type { Hono } from "hono";
-import type { ChatTurn } from "../../shared/chat";
+import { CHAT_CONTENT_LIMIT, CHAT_MESSAGE_LIMIT, type ChatTurn } from "../../shared/chat";
 import { answerChat } from "../ai/answer-chat";
 import { chatRouter } from "../ai/chat-router";
 import { geminiGeneratorFromApiKey } from "../ai/gemini";
 import { readChatRuntime } from "../env";
 import { fail, isRecord, ok } from "../http";
-
-const MESSAGE_LIMIT = 8;
-const CONTENT_LIMIT = 1000;
 
 export function registerChatRoutes(app: Hono<{ Bindings: Env }>): void {
   app.post("/api/chat", async (c) => {
@@ -50,7 +47,7 @@ async function readChatBody(
   if (body.messages.length === 0) {
     return { ok: false, message: "質問がありません" };
   }
-  if (body.messages.length > MESSAGE_LIMIT) {
+  if (body.messages.length > CHAT_MESSAGE_LIMIT) {
     return { ok: false, message: "質問が長すぎます" };
   }
   const messages: ChatTurn[] = [];
@@ -82,7 +79,7 @@ function readTurn(
   if (content.length === 0) {
     return { ok: false, message: "質問がありません" };
   }
-  if (content.length > CONTENT_LIMIT) {
+  if (content.length > CHAT_CONTENT_LIMIT) {
     return { ok: false, message: "質問が長すぎます" };
   }
   return { ok: true, turn: { role: item.role, content } };

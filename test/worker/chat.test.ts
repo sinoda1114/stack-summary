@@ -136,7 +136,7 @@ describe("問い合わせの根拠", () => {
     expect(generator.contents).toContain("使い方:");
     expect(generator.contents).toContain("全体図:");
     expect(generator.contents).not.toContain("根拠:");
-    expect(generator.contents).not.toContain("PelagoDB");
+    expect(generator.contents).not.toContain("索引に使う");
 
     const stackGenerator = scripted("未評価です。", calls);
     const stack = await answerChat({

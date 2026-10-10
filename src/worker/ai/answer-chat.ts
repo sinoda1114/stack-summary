@@ -23,7 +23,7 @@ export async function answerChat(input: {
     input.generator,
     {
       model: input.model,
-      system: chatSystemPrompt(intent),
+      system: chatSystemPrompt,
       contents: chatContents({
         intent,
         usage: chatUsageGuide,
