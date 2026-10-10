@@ -19,6 +19,7 @@ export type ResolveExtractedTechResult =
       relation: TechRelation;
       created: boolean;
       discarded: readonly string[];
+      aliases: readonly AliasEntry[];
     }
   | {
       kind: "mention";
@@ -239,6 +240,7 @@ async function commitAttachment(
     relation: await storedRelation(db, input.memoId, techId),
     created: input.plan.kind === "create",
     discarded: input.discarded,
+    aliases: input.plan.aliasesToInsert,
   };
 }
 
