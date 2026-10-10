@@ -29,19 +29,21 @@ createRoot(root).render(
       defaultColorScheme="light"
     >
       <BrowserRouter>
-        <div className="sheet">
+        <div className="app-shell">
           <AppNav />
-          <Routes>
-            <Route path="/" element={<OverviewPage />} />
-            <Route path="/imports" element={<ImportPage />} />
-            <Route path="/memos" element={<MemoPage />} />
-            <Route path="/memos/:id" element={<MemoPage />} />
-            <Route path="/export" element={<ExportPage />} />
-            <Route path="/inbox" element={<InboxPage />} />
-            <Route path="/taxonomy" element={<TaxonomyPage />} />
-            <Route path="/techs/:id" element={<TechPage />} />
-            <Route path="/subcategories/:id" element={<SubcategoryPage />} />
-          </Routes>
+          <div className="sheet">
+            <Routes>
+              <Route path="/" element={<OverviewPage />} />
+              <Route path="/imports" element={<ImportPage />} />
+              <Route path="/memos" element={<MemoPage />} />
+              <Route path="/memos/:id" element={<MemoPage />} />
+              <Route path="/export" element={<ExportPage />} />
+              <Route path="/inbox" element={<InboxPage />} />
+              <Route path="/taxonomy" element={<TaxonomyPage />} />
+              <Route path="/techs/:id" element={<TechPage />} />
+              <Route path="/subcategories/:id" element={<SubcategoryPage />} />
+            </Routes>
+          </div>
         </div>
         <ChatFab />
       </BrowserRouter>
