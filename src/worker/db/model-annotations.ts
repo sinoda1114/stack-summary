@@ -104,7 +104,7 @@ function aliasStatements(
   return statements;
 }
 
-function aliasInsert(
+export function aliasInsert(
   db: D1Database,
   techId: string,
   alias: { key: string; label: string },

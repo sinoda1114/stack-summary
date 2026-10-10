@@ -48,6 +48,49 @@ describe("取り込み画面", () => {
     expect(await screen.findByText("取り込みを開始しました")).toBeTruthy();
   });
 
+  it("開始したあとに履歴取得が失敗しても、開始の文言は残す", async () => {
+    mockMatch(false);
+    let listCalls = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+        if (init?.method === "POST") {
+          return json(
+            {
+              success: true,
+              data: importRow("queued"),
+              error: null,
+            },
+            202,
+          );
+        }
+        listCalls += 1;
+        if (listCalls === 1) {
+          return json({ success: true, data: [], error: null });
+        }
+        return json(
+          {
+            success: false,
+            data: null,
+            error: { code: "failed", message: "取り込み履歴を取得できませんでした" },
+          },
+          500,
+        );
+      }),
+    );
+    render(
+      <MantineProvider>
+        <ImportPage />
+      </MantineProvider>,
+    );
+    const pasted = await screen.findByLabelText("貼り付け");
+    await userEvent.type(pasted, "Hono");
+    await userEvent.click(screen.getByRole("button", { name: "取り込む" }));
+    expect(await screen.findByText("取り込みを開始しました")).toBeTruthy();
+    expect(screen.getByText("取り込み履歴を取得できませんでした")).toBeTruthy();
+    expect(screen.getByLabelText("貼り付け")).toHaveProperty("value", "");
+  });
+
   it("同じ原文と処理中は開始したと出さない", async () => {
     mockMatch(false);
     vi.stubGlobal(

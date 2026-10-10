@@ -28,7 +28,7 @@ export function TaxonomyPage() {
       requestJson<CategoryItem[]>("/api/categories"),
       requestJson<OverviewCategory[]>("/api/overview"),
     ]);
-    if (!categoryBody.success || !overview.success || categoryBody.data === null || overview.data === null) {
+    if (!categoryBody.success || !overview.success) {
       setNotice(
         categoryBody.error?.message ?? overview.error?.message ?? "分類を取得できませんでした",
       );

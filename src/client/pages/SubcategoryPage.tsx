@@ -32,7 +32,7 @@ export function SubcategoryPage() {
       if (!current) {
         return;
       }
-      if (!result.success || result.data === null) {
+      if (!result.success) {
         setComparison(null);
         setNotice(result.error?.message ?? "小分類を取得できませんでした");
         return;

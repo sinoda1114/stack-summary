@@ -45,16 +45,11 @@ export function InboxPage() {
       requestJson<Unreviewed[]>("/api/subcategories"),
       requestJson<CategoryItem[]>("/api/categories"),
     ]);
-    const failure = [rated, open, review, targets, categoryBody].find((result) => !result.success);
-    if (
-      failure !== undefined ||
-      rated.data === null ||
-      open.data === null ||
-      review.data === null ||
-      targets.data === null ||
-      categoryBody.data === null
-    ) {
-      setNotice(failure?.error?.message ?? "受け箱を取得できませんでした");
+    if (!rated.success || !open.success || !review.success || !targets.success || !categoryBody.success) {
+      const failed = [rated, open, review, targets, categoryBody].find((result) => !result.success);
+      setNotice(
+        failed !== undefined && !failed.success ? failed.error.message : "受け箱を取得できませんでした",
+      );
       return;
     }
     setNotice(null);

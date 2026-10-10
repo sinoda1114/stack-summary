@@ -118,7 +118,8 @@ stack-summary/
 | §6 取り込み処理 | `src/worker/workflows/import-workflow.ts` |
 | §6.8 Gemini の呼び出し | `src/worker/ai/gemini.ts`、`split-memos.ts`、`extract-techs.ts`、`prompts/*` |
 | §6.7 分類器 | `src/worker/ai/classifier.ts`、`gemini-classifier.ts`、`prompts/classify.v1.ts` |
-| §6.10 統合、§6.6 格上げ | `src/worker/routes/techs.ts`、`src/worker/db/merge-tech.ts`、`src/worker/routes/mentions.ts` |
+| §6.10 統合、§6.6 格上げ | `src/worker/routes/techs.ts`、`src/worker/db/merge-tech.ts`、`src/worker/routes/mentions.ts`、`src/worker/db/promote-mention.ts` |
+| §7 メモ検索、書き出し | `src/worker/routes/memos.ts`、`src/worker/db/memo-search.ts`、`src/worker/routes/export.ts`、`src/worker/db/export-data.ts` |
 | §7 JSON API | `src/worker/routes/*`、`src/client/api.ts`。資源ごとにファイルを分ける |
 | §8 画面 | `src/client/*` |
 | §9 配置先 | `wrangler.jsonc`、`.github/workflows/ci.yml`。自動デプロイは段階 10 |

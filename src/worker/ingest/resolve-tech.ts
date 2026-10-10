@@ -149,7 +149,7 @@ async function recordMention(
   return { kind: "mention", name, discarded };
 }
 
-const CLAIM_ATTEMPTS = 3;
+export const CLAIM_ATTEMPTS = 3;
 
 async function attachTech(
   db: D1Database,
@@ -221,10 +221,10 @@ async function commitAttachment(
   try {
     await db.batch([
       ...(input.plan.kind === "create"
-        ? [techInsert(db, techId, input.canonical, input.now)]
+        ? [claimTechInsert(db, techId, input.canonical, input.now)]
         : []),
       ...input.plan.aliasesToInsert.map((entry) =>
-        aliasInsert(db, entry, techId),
+        claimAliasInsert(db, entry, techId),
       ),
       linkInsert(db, input.memoId, techId, input.relation),
     ]);
@@ -267,7 +267,7 @@ async function aliasHits(
   return hits;
 }
 
-async function storedRelation(
+export async function storedRelation(
   db: D1Database,
   memoId: string,
   techId: string,
@@ -284,7 +284,7 @@ async function storedRelation(
   throw new Error("メモと技術の関係を読めませんでした");
 }
 
-function techInsert(
+export function claimTechInsert(
   db: D1Database,
   techId: string,
   entry: AliasEntry,
@@ -299,7 +299,7 @@ function techInsert(
     .bind(techId, entry.label, entry.key, now, now);
 }
 
-function aliasInsert(
+export function claimAliasInsert(
   db: D1Database,
   entry: AliasEntry,
   techId: string,
@@ -312,7 +312,7 @@ function aliasInsert(
     .bind(entry.key, entry.label, techId);
 }
 
-function isLostClaim(error: unknown): boolean {
+export function isLostClaim(error: unknown): boolean {
   const text = errorText(error);
   return (
     text.includes("UNIQUE constraint failed: techs.name_key") ||
@@ -329,7 +329,7 @@ function errorText(error: unknown): string {
   return `${error.message}\n${nested}`;
 }
 
-function linkInsert(
+export function linkInsert(
   db: D1Database,
   memoId: string,
   techId: string,

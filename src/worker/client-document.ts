@@ -12,9 +12,15 @@ const CLIENT_DOCUMENT = `<!doctype html>
 </html>
 `;
 
-const EXACT_CLIENT_PATHS = new Set(["/imports", "/inbox", "/taxonomy"]);
+const EXACT_CLIENT_PATHS = new Set([
+  "/imports",
+  "/inbox",
+  "/taxonomy",
+  "/export",
+  "/memos",
+]);
 
-const CLIENT_PREFIXES = ["/techs/", "/subcategories/"];
+const CLIENT_PREFIXES = ["/techs/", "/subcategories/", "/memos/"];
 
 export function isClientDocumentPath(pathname: string): boolean {
   const path = withoutTrailingSlash(pathname);

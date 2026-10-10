@@ -39,16 +39,15 @@ export function TechPage() {
       if (!current) {
         return;
       }
-      const data = result.success ? result.data : null;
-      if (data === null || !isTechStatus(data.status)) {
+      if (!result.success || !isTechStatus(result.data.status)) {
         setDetail(null);
         setNotice(result.error?.message ?? "技術を取得できませんでした");
         return;
       }
       setNotice(null);
-      setDetail(data);
-      setStatus(data.status);
-      setReason(data.reason ?? "");
+      setDetail(result.data);
+      setStatus(result.data.status);
+      setReason(result.data.reason ?? "");
     });
     return () => {
       current = false;
@@ -73,7 +72,7 @@ export function TechPage() {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ status: selectedStatus, reason }),
     });
-    if (!result.success || result.data === null) {
+    if (!result.success) {
       setNotice(result.error?.message ?? "保存に失敗しました");
       return;
     }
@@ -132,7 +131,7 @@ function MergeBox(props: { sourceId: string | undefined }) {
       if (!current) {
         return;
       }
-      if (!result.success || result.data === null) {
+      if (!result.success) {
         setNotice(result.error?.message ?? "技術一覧を取得できませんでした");
         return;
       }
@@ -163,7 +162,7 @@ function MergeBox(props: { sourceId: string | undefined }) {
       return;
     }
     setNeedsChoice(false);
-    setNotice(null);
+    setNotice("統合しました");
   }
 
   return (

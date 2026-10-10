@@ -3,7 +3,9 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes } from "react-router";
 import { AppNav } from "./components/AppNav";
+import { ExportPage } from "./pages/ExportPage";
 import { ImportPage } from "./pages/ImportPage";
+import { MemoPage } from "./pages/MemoPage";
 import { InboxPage } from "./pages/InboxPage";
 import { OverviewPage } from "./pages/OverviewPage";
 import { SubcategoryPage } from "./pages/SubcategoryPage";
@@ -24,6 +26,9 @@ createRoot(root).render(
         <Routes>
           <Route path="/" element={<OverviewPage />} />
           <Route path="/imports" element={<ImportPage />} />
+          <Route path="/memos" element={<MemoPage />} />
+          <Route path="/memos/:id" element={<MemoPage />} />
+          <Route path="/export" element={<ExportPage />} />
           <Route path="/inbox" element={<InboxPage />} />
           <Route path="/taxonomy" element={<TaxonomyPage />} />
           <Route path="/techs/:id" element={<TechPage />} />
