@@ -7,4 +7,3 @@ APP_ORIGIN=http://localhost:8787
 GEMINI_API_KEY=replace-me
 GEMINI_MODEL=gemini-flash-latest
 IMPORT_MAX_CHARS=50000
-PROMPT_VERSION=v1
