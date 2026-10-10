@@ -4,7 +4,7 @@ export type ChatRouter = {
   route(question: string): Promise<ChatIntent>;
 };
 
-export const USAGE_REPLY = [
+const USAGE_REPLY = [
   "全体図で技術の状態を見る。",
   "取り込みにテキストを貼ると、メモと技術になる。",
   "メモで本文を見る。受け箱で未評価と未分類を確認する。",
@@ -12,13 +12,20 @@ export const USAGE_REPLY = [
   "狭い幅では、全体図・取り込み・メモだけを出す。",
 ].join("");
 
-export const OUT_OF_SCOPE_REPLY =
+const OUT_OF_SCOPE_REPLY =
   "対象外です。取り込んだメモと技術、またはこのアプリの使い方について聞いてください。";
 
 // 振り分けは後からこの定数へ渡す。Clef の実装は置かない。
 export const chatRouter: ChatRouter | null = null;
 
-export function replyForIntent(intent: ChatIntent): string | null {
+export async function routedChatAnswer(question: string): Promise<string | null> {
+  if (chatRouter === null) {
+    return null;
+  }
+  return answerForIntent(await chatRouter.route(question));
+}
+
+function answerForIntent(intent: ChatIntent): string | null {
   switch (intent) {
     case "stack":
       return null;
