@@ -28,6 +28,7 @@ export function AppNav() {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLElement>(null);
+  const pathRef = useRef(pathname);
 
   useEffect(() => {
     if (!mobile) {
@@ -52,6 +53,10 @@ export function AppNav() {
   }, [open]);
 
   useEffect(() => {
+    if (pathRef.current === pathname) {
+      return;
+    }
+    pathRef.current = pathname;
     setOpen(false);
   }, [pathname]);
 
