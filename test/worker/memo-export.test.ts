@@ -149,6 +149,38 @@ describe("メモ検索と格上げと書き出し", () => {
     expect(kept).toEqual({ relation: "comparison" });
   });
 
+  it("別名の格上げは、その別名が指す技術に結び、言及を消す", async () => {
+    const memoId = await insertMemo({ title: "題", body: "本文", memoDate: null });
+    const techId = crypto.randomUUID();
+    await env.DB.batch([
+      env.DB.prepare(
+        `INSERT INTO techs (
+           id, name, name_key, status, status_by, created_at, updated_at
+         ) VALUES (?, 'Cloudflare Workers', 'cloudflareworkers', 'unrated', 'model', ?, ?)`,
+      ).bind(techId, NOW, NOW),
+      env.DB.prepare(
+        `INSERT INTO tech_aliases (alias_key, alias, tech_id, source)
+         VALUES ('cloudflareworkers', 'Cloudflare Workers', ?, 'model')`,
+      ).bind(techId),
+      env.DB.prepare(
+        `INSERT INTO tech_aliases (alias_key, alias, tech_id, source)
+         VALUES ('workers', 'Workers', ?, 'model')`,
+      ).bind(techId),
+      env.DB.prepare("INSERT INTO memo_mentions (memo_id, name) VALUES (?, 'Workers')").bind(
+        memoId,
+      ),
+    ]);
+
+    const promoted = await promoteMention(env.DB, { memoId, name: "Workers", now: NOW });
+    expect(promoted).toEqual({ ok: true, techId, relation: "subject" });
+    const mention = await env.DB.prepare(
+      "SELECT name FROM memo_mentions WHERE memo_id = ?",
+    )
+      .bind(memoId)
+      .first();
+    expect(mention).toBeNull();
+  });
+
   it("無い言及は 404 相当、空の名前は消さず拒否する", async () => {
     const memoId = await insertMemo({ title: "題", body: "本文", memoDate: null });
     expect(await promoteMention(env.DB, { memoId, name: "Laya", now: NOW })).toEqual({

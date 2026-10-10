@@ -221,7 +221,7 @@ async function commitAttachment(
   try {
     await db.batch([
       ...(input.plan.kind === "create"
-        ? [techInsert(db, techId, input.canonical, input.now)]
+        ? [claimTechInsert(db, techId, input.canonical, input.now)]
         : []),
       ...input.plan.aliasesToInsert.map((entry) =>
         aliasInsert(db, entry, techId),
@@ -267,7 +267,7 @@ async function aliasHits(
   return hits;
 }
 
-async function storedRelation(
+export async function storedRelation(
   db: D1Database,
   memoId: string,
   techId: string,
@@ -284,7 +284,7 @@ async function storedRelation(
   throw new Error("メモと技術の関係を読めませんでした");
 }
 
-function techInsert(
+function claimTechInsert(
   db: D1Database,
   techId: string,
   entry: AliasEntry,
@@ -297,6 +297,42 @@ function techInsert(
        ) VALUES (?, ?, ?, NULL, 'unrated', 'model', ?, ?)`,
     )
     .bind(techId, entry.label, entry.key, now, now);
+}
+
+export function techInsert(
+  db: D1Database,
+  entry: AliasEntry,
+  now: string,
+  id: string,
+): D1PreparedStatement {
+  return db
+    .prepare(
+      `INSERT INTO techs (
+         id, name, name_key, subcategory_id, status, status_by, created_at, updated_at
+       ) VALUES (?, ?, ?, NULL, 'unrated', 'model', ?, ?)
+       ON CONFLICT(name_key) DO NOTHING`,
+    )
+    .bind(id, entry.label, entry.key, now, now);
+}
+
+async function createTech(
+  db: D1Database,
+  entry: AliasEntry,
+  now: string,
+): Promise<{ techId: string; created: boolean }> {
+  const id = crypto.randomUUID();
+  const inserted = await techInsert(db, entry, now, id).run();
+  const row = await db
+    .prepare("SELECT id FROM techs WHERE name_key = ?")
+    .bind(entry.key)
+    .first<{ id: string }>();
+  if (row === null) {
+    throw new Error("技術を作成できませんでした");
+  }
+  return {
+    techId: row.id,
+    created: inserted.meta.changes === 1 && row.id === id,
+  };
 }
 
 function aliasInsert(
@@ -329,7 +365,7 @@ function errorText(error: unknown): string {
   return `${error.message}\n${nested}`;
 }
 
-function linkInsert(
+export function linkInsert(
   db: D1Database,
   memoId: string,
   techId: string,
