@@ -95,7 +95,7 @@ export async function createImport(input: {
   sourceLabel: string | null;
   now: string;
 }): Promise<{
-  status: 200 | 202 | 400;
+  status: 200 | 202 | 400 | 500;
   data: ImportResponse | null;
   error: { code: string; message: string } | null;
 }> {
@@ -124,18 +124,37 @@ export async function createImport(input: {
   }
   const id = crypto.randomUUID();
   const normalized = normalizeRawText(input.text);
-  await insertQueuedImport(input.db, {
-    id,
-    rawText: normalized,
-    rawHash: hash,
-    sourceLabel: input.sourceLabel,
-    now: input.now,
-  });
+  try {
+    await insertQueuedImport(input.db, {
+      id,
+      rawText: normalized,
+      rawHash: hash,
+      sourceLabel: input.sourceLabel,
+      now: input.now,
+    });
+  } catch (error) {
+    if (!isUniqueConstraint(error)) {
+      throw error;
+    }
+    const raced = await findImportByHash(input.db, hash);
+    if (raced === null) {
+      throw error;
+    }
+    return { status: 200, data: toImportResponse(raced, false), error: null };
+  }
   try {
     await input.workflow.create({ id, params: { importId: id } });
-  } catch (error) {
-    await input.db.prepare("DELETE FROM imports WHERE id = ?").bind(id).run();
-    throw error;
+  } catch {
+    await updateImport(input.db, id, {
+      status: "failed",
+      error: "Workflow を起動できませんでした",
+      now: input.now,
+    });
+    return {
+      status: 500,
+      data: null,
+      error: { code: "workflow", message: "Workflow を起動できませんでした" },
+    };
   }
   const created = await findImportById(input.db, id);
   if (created === null) {
@@ -150,7 +169,7 @@ export async function reprocessImport(input: {
   id: string;
   now: string;
 }): Promise<{
-  status: 202 | 404;
+  status: 202 | 404 | 409;
   data: ImportResponse | null;
   error: { code: string; message: string } | null;
 }> {
@@ -160,6 +179,13 @@ export async function reprocessImport(input: {
       status: 404,
       data: null,
       error: { code: "not_found", message: "取り込みが見つかりません" },
+    };
+  }
+  if (existing.status === "queued" || existing.status === "processing") {
+    return {
+      status: 409,
+      data: null,
+      error: { code: "in_progress", message: "処理中です" },
     };
   }
   const instanceId = await nextWorkflowId(input.workflow, input.id);
@@ -193,6 +219,10 @@ export async function nextWorkflowId(
     }
   }
   throw new Error("再処理の回数を決められませんでした");
+}
+
+function isUniqueConstraint(error: unknown): boolean {
+  return error instanceof Error && error.message.toLowerCase().includes("unique");
 }
 
 async function workflowExists(

@@ -45,6 +45,7 @@ export async function upsertSplitMemo(
       throw new Error("URL だけのメモを保存できませんでした");
     }
     await replaceMemoUrls(db, row.id, identity.urls);
+    await linkSimilarMemos(db, row.id, identity.urls);
     return { id: row.id, title: input.title, body: row.body, urls: [...identity.urls] };
   }
 

@@ -15,11 +15,14 @@ describe("取り込み画面", () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       if (init?.method === "POST") {
-        return json({
-          success: true,
-          data: importRow("queued"),
-          error: null,
-        });
+        return json(
+          {
+            success: true,
+            data: importRow("queued"),
+            error: null,
+          },
+          202,
+        );
       }
       if (url.endsWith("/api/imports")) {
         return json({
@@ -45,6 +48,56 @@ describe("取り込み画面", () => {
     expect(await screen.findByText("取り込みを開始しました")).toBeTruthy();
   });
 
+  it("同じ原文と処理中は開始したと出さない", async () => {
+    mockMatch(false);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+        if (init?.method === "POST") {
+          return json({
+            success: true,
+            data: importRow("done"),
+            error: null,
+          });
+        }
+        return json({ success: true, data: [], error: null });
+      }),
+    );
+    render(
+      <MantineProvider>
+        <ImportPage />
+      </MantineProvider>,
+    );
+    await userEvent.type(await screen.findByLabelText("貼り付け"), "Hono");
+    await userEvent.click(screen.getByRole("button", { name: "取り込む" }));
+    expect(await screen.findByText("同じ原文です")).toBeTruthy();
+  });
+
+  it("処理中の原文は処理中と出す", async () => {
+    mockMatch(false);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+        if (init?.method === "POST") {
+          return json({
+            success: true,
+            data: importRow("processing"),
+            error: null,
+          });
+        }
+        return json({ success: true, data: [], error: null });
+      }),
+    );
+    render(
+      <MantineProvider>
+        <ImportPage />
+      </MantineProvider>,
+    );
+    await userEvent.type(await screen.findByLabelText("貼り付け"), "Hono");
+    await userEvent.click(screen.getByRole("button", { name: "取り込む" }));
+    expect(await screen.findByText("処理中です")).toBeTruthy();
+  });
+
   it("767px 以下では貼り付け欄を出さない", async () => {
     mockMatch(true);
     vi.stubGlobal(
@@ -63,7 +116,7 @@ describe("取り込み画面", () => {
   });
 });
 
-function importRow(status: "queued" | "failed") {
+function importRow(status: "queued" | "processing" | "done" | "failed") {
   return {
     id: "import-1",
     status,
@@ -76,8 +129,9 @@ function importRow(status: "queued" | "failed") {
   };
 }
 
-function json(body: unknown): Response {
+function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
+    status,
     headers: { "content-type": "application/json" },
   });
 }

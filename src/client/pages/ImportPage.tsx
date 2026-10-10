@@ -21,9 +21,7 @@ export function ImportPage() {
       setMessage(result.error?.message ?? "取り込みに失敗しました");
       return;
     }
-    setMessage(
-      result.data.status === "done" ? "同じ原文です" : "取り込みを開始しました",
-    );
+    setMessage(submitMessage(result.httpStatus, result.data));
     setText("");
     await reload(setRows);
   }
@@ -53,6 +51,19 @@ export function ImportPage() {
       <ImportProgress rows={rows} />
     </Stack>
   );
+}
+
+function submitMessage(httpStatus: number, item: ImportItem): string {
+  if (httpStatus === 202) {
+    return "取り込みを開始しました";
+  }
+  if (item.status === "done") {
+    return "同じ原文です";
+  }
+  if (item.status === "queued" || item.status === "processing") {
+    return "処理中です";
+  }
+  return item.error ?? "取り込みは失敗しています";
 }
 
 async function reload(

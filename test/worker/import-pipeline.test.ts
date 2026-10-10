@@ -5,7 +5,7 @@ import {
   type StructuredGenerateRequest,
   type StructuredGenerator,
 } from "../../src/worker/ai/model-output";
-import { findImportById, insertQueuedImport } from "../../src/worker/db/imports";
+import { findImportById, insertQueuedImport, updateImport } from "../../src/worker/db/imports";
 import { aliasKey } from "../../src/worker/ingest/normalize";
 import {
   createImport,
@@ -234,7 +234,7 @@ describe("取り込み", () => {
     ]);
   });
 
-  it("Workflow を作れないときは取り込みを残さない", async () => {
+  it("Workflow を作れないときは原文を残して failed にする", async () => {
     const workflow: ImportWorkflowClient = {
       async get() {
         throw new Error("missing");
@@ -243,18 +243,69 @@ describe("取り込み", () => {
         throw new Error("boom");
       },
     };
-    await expect(
-      createImport({
-        db: env.DB,
-        workflow,
-        maxChars: 50000,
-        text: "失敗する原文",
-        sourceLabel: null,
-        now: NOW,
-      }),
-    ).rejects.toThrow("boom");
-    const rows = await env.DB.prepare("SELECT id FROM imports").all();
-    expect(rows.results).toHaveLength(0);
+    const failed = await createImport({
+      db: env.DB,
+      workflow,
+      maxChars: 50000,
+      text: "失敗する原文",
+      sourceLabel: null,
+      now: NOW,
+    });
+    expect(failed.status).toBe(500);
+    expect(failed.error?.message).toBe("Workflow を起動できませんでした");
+    const row = await env.DB.prepare(
+      "SELECT status, error, raw_text FROM imports",
+    ).first<{ status: string; error: string; raw_text: string }>();
+    expect(row).toEqual({
+      status: "failed",
+      error: "Workflow を起動できませんでした",
+      raw_text: "失敗する原文",
+    });
+  });
+
+  it("同じ原文の同時挿入は既存行を 200 で返す", async () => {
+    const workflow = fakeWorkflow();
+    const input = {
+      db: env.DB,
+      workflow,
+      maxChars: 50000,
+      text: "同時の原文",
+      sourceLabel: null,
+      now: NOW,
+    };
+    const [first, second] = await Promise.all([
+      createImport(input),
+      createImport(input),
+    ]);
+    expect([first.status, second.status].sort()).toEqual([200, 202]);
+    expect(first.data?.id).toBe(second.data?.id);
+    expect(workflow.created).toHaveLength(1);
+  });
+
+  it("URL だけのメモも重なる URL を似たメモにする", async () => {
+    const firstBody = "https://example.com/shared\nhttps://example.com/a";
+    const secondBody = "https://example.com/shared\nhttps://example.com/b";
+    const first = await queue(firstBody);
+    const second = await queue(secondBody);
+    const split = (body: string) =>
+      JSON.stringify({
+        memos: [{ title: "links", body, memoDate: null, urls: [] }],
+        skippedCount: 0,
+      });
+    await executeImport(
+      immediateStep(),
+      runner(scripted([split(firstBody), emptyExtract()]).generator),
+      first,
+    );
+    await executeImport(
+      immediateStep(),
+      runner(scripted([split(secondBody), emptyExtract()]).generator),
+      second,
+    );
+    const similars = await env.DB.prepare(
+      "SELECT memo_id FROM memo_similars",
+    ).all();
+    expect(similars.results).toHaveLength(2);
   });
 
   it("同じ原文は Workflow を起動せず、再処理の ID は回数を付ける", async () => {
@@ -303,6 +354,19 @@ describe("取り込み", () => {
     if (importId === undefined) {
       throw new Error("取り込み ID がありません");
     }
+    const blocked = await reprocessImport({
+      db: env.DB,
+      workflow,
+      id: importId,
+      now: NOW,
+    });
+    expect(blocked.status).toBe(409);
+    expect(blocked.error?.code).toBe("in_progress");
+    await updateImport(env.DB, importId, {
+      status: "done",
+      error: null,
+      now: NOW,
+    });
     const reprocessed = await reprocessImport({
       db: env.DB,
       workflow,

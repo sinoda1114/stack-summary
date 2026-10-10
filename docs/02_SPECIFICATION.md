@@ -262,7 +262,7 @@ CREATE TABLE memo_tags (
 1. `text` が空、または `IMPORT_MAX_CHARS` を超えたら 400 を返す。超えたときは分けて貼るよう表示する。仮の上限は 50000 文字である。
 2. §6.2 で原文を正規化し、SHA-256 を `raw_hash` にする。
 3. 同じ `raw_hash` の `imports` があれば、200 でその行を返す。Workflow は起動しない。Gemini は呼ばない。
-4. 無ければ `imports` を `queued` で挿入し、Workflow を起動して 202 を返す。初回の Workflow インスタンス ID は `imports.id` である。パラメータの `importId` も `imports.id` である。
+4. 無ければ `imports` を `queued` で挿入し、Workflow を起動して 202 を返す。初回の Workflow インスタンス ID は `imports.id` である。パラメータの `importId` も `imports.id` である。同じ原文の同時挿入で一意制約に当たったときは、既存行を 200 で返す。Workflow の起動に失敗したときは行を消さず、原文を残し、`status` を `failed`、`error` を書いて 500 を返す。
 
 ### 6.2 原文の正規化
 
@@ -313,7 +313,7 @@ CREATE TABLE memo_tags (
 3. 重複を除いてソートする。
 4. LF で連結した UTF-8 の SHA-256 を、16 進小文字で `url_set_hash` にする。
 
-同じ `url_set_hash` のメモは 1 行である。本文があり、URL が既存と 1 つでも重なり、同一メモではないときは重複にせず `memo_similars` へ書く（FR-05）。
+同じ `url_set_hash` のメモは 1 行である。本文があるメモも URL だけのメモも、URL が既存と 1 つでも重なり、同一メモではないときは重複にせず `memo_similars` へ書く（FR-05）。
 
 ### 6.6 新機能と格上げ
 
@@ -366,9 +366,9 @@ ON CONFLICT (category_id, name) DO NOTHING;
 
 ### 6.9 再処理
 
-`POST /api/imports/:id/reprocess` は、対象の `imports.status` を `queued` に戻し、`error` を空にして、Workflow を起動する。
+`POST /api/imports/:id/reprocess` は、`queued` または `processing` なら 409 を返す。それ以外は対象の `imports.status` を `queued` に戻し、`error` を空にして、Workflow を起動する。
 
-完了済みまたは失敗済みの Workflow インスタンスは、同じインスタンス ID では再作成できない。再処理のインスタンス ID は `${imports.id}:${n}`（`n` はその取り込みの再処理回数）とし、パラメータの `importId` は元の `imports.id` のままにする。データの同一性は Workflow のインスタンス ID ではなく、`imports.id` と §4.1 の自然キーである。
+完了済みまたは失敗済みの Workflow インスタンスは、同じインスタンス ID では再作成できない。再処理のインスタンス ID は `${imports.id}-${n}`（`n` はその取り込みの再処理回数）とし、パラメータの `importId` は元の `imports.id` のままにする。データの同一性は Workflow のインスタンス ID ではなく、`imports.id` と §4.1 の自然キーである。
 
 各ステップは初回と同じ upsert を行う。置換は 1 つの `batch()` に入れる。
 

@@ -22,19 +22,19 @@ export async function listImports(): Promise<ApiResult<ImportItem[]>> {
 export async function createImport(
   text: string,
   sourceLabel: string,
-): Promise<ApiResult<ImportItem>> {
+): Promise<ApiResult<ImportItem> & { httpStatus: number }> {
   const body: { text: string; sourceLabel?: string } = { text };
   const trimmed = sourceLabel.trim();
   if (trimmed.length > 0) {
     body.sourceLabel = trimmed;
   }
-  return readJson<ImportItem>(
-    await fetch("/api/imports", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
-    }),
-  );
+  const response = await fetch("/api/imports", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const result = await readJson<ImportItem>(response);
+  return { ...result, httpStatus: response.status };
 }
 
 async function readJson<T>(response: Response): Promise<ApiResult<T>> {
