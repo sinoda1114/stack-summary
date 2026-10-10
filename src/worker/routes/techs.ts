@@ -3,7 +3,7 @@ import type { TechStatus } from "../../shared/labels";
 import { addUserAlias, deleteUserAlias } from "../db/aliases";
 import { mergeTech } from "../db/merge-tech";
 import { isTechStatus, listTechSummaries, loadTechDetail, patchTech } from "../db/tech-detail";
-import { fail, isRecord, ok } from "../http";
+import { fail, ok, readRecord } from "../http";
 
 type TechPatch = {
   status?: TechStatus;
@@ -129,18 +129,6 @@ function mergeMessage(code: "self_merge" | "not_found" | "reason_conflict"): str
       const unexpected: never = code;
       throw new Error(`未知の統合結果です: ${String(unexpected)}`);
     }
-  }
-}
-
-async function readRecord(request: Request): Promise<Record<string, unknown> | null> {
-  try {
-    const body: unknown = await request.json();
-    if (!isRecord(body)) {
-      return null;
-    }
-    return body;
-  } catch {
-    return null;
   }
 }
 

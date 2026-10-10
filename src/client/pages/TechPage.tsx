@@ -152,24 +152,18 @@ function MergeBox(props: { sourceId: string | undefined }) {
     if (props.sourceId === undefined || intoId === null) {
       return;
     }
-    let response: Response;
-    try {
-      response = await fetch(`/api/techs/${props.sourceId}/merge`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ intoId, reasonChoice }),
-      });
-    } catch {
-      setNotice("通信に失敗しました");
+    const result = await requestJson<{ intoId: string }>(`/api/techs/${props.sourceId}/merge`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ intoId, reasonChoice }),
+    });
+    if (!result.success) {
+      setNeedsChoice(result.error?.code === "reason_conflict");
+      setNotice(result.error?.message ?? "統合できませんでした");
       return;
     }
-    setNeedsChoice(response.status === 409);
-    if (response.ok) {
-      setNotice(null);
-      return;
-    }
-    const body = (await response.json()) as { error?: { message: string } | null };
-    setNotice(body.error?.message ?? "統合できませんでした");
+    setNeedsChoice(false);
+    setNotice(null);
   }
 
   return (

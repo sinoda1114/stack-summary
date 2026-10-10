@@ -1,6 +1,6 @@
 import type { Hono } from "hono";
 import { createCategory, listCategoryItems, patchCategory } from "../db/category-admin";
-import { fail, isRecord, ok } from "../http";
+import { fail, ok, readRecord } from "../http";
 
 export function registerCategoryRoutes(app: Hono<{ Bindings: Env }>): void {
   app.get("/api/categories", async (c) => {
@@ -50,14 +50,3 @@ export function registerCategoryRoutes(app: Hono<{ Bindings: Env }>): void {
   });
 }
 
-async function readRecord(request: Request): Promise<Record<string, unknown> | null> {
-  try {
-    const body: unknown = await request.json();
-    if (!isRecord(body)) {
-      return null;
-    }
-    return body;
-  } catch {
-    return null;
-  }
-}

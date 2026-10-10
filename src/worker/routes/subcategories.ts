@@ -6,7 +6,7 @@ import {
   patchSubcategory,
 } from "../db/subcategory-admin";
 import { loadSubcategoryComparison } from "../db/tech-detail";
-import { fail, isRecord, ok } from "../http";
+import { fail, ok, readRecord } from "../http";
 
 export function registerSubcategoryRoutes(app: Hono<{ Bindings: Env }>): void {
   app.get("/api/subcategories", async (c) => {
@@ -88,14 +88,3 @@ export function registerSubcategoryRoutes(app: Hono<{ Bindings: Env }>): void {
   });
 }
 
-async function readRecord(request: Request): Promise<Record<string, unknown> | null> {
-  try {
-    const body: unknown = await request.json();
-    if (!isRecord(body)) {
-      return null;
-    }
-    return body;
-  } catch {
-    return null;
-  }
-}
