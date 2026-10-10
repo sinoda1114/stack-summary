@@ -17,5 +17,13 @@
   },
   "secrets": {
     "required": ["OWNER_EMAIL"]
-  }
+  },
+  // 段階 2 はローカル D1。リモートの database_id は本番配置の前に置く。
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "stack-summary",
+      "migrations_dir": "migrations"
+    }
+  ]
 }

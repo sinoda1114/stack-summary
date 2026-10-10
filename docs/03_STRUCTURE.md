@@ -172,6 +172,15 @@ line-send と共通の部分（Hono、React、Mantine、Vite、テスト）は�
 
 `ci.yml` は `sinoda1114/ci-standard` の Node CI を呼ぶ。Dependabot は npm と github-actions を週次で見る。`wrangler.jsonc` は `workers_dev = false`、`preview_urls = false` とする。D1 バインディング、Gemini、画面、`origin-check.ts` は段階 1 に含めない。
 
+段階 2 で置くファイルは次のとおり。
+
+- `migrations/0001_init.sql`
+- `test/apply-migrations.ts`
+- `test/worker/schema.test.ts`
+- `wrangler.jsonc` の D1 バインディング `DB`（`migrations_dir` は `migrations`）
+
+段階 2 に Gemini、画面、取り込み Workflow は含めない。リモート D1 の `database_id` は本番配置の前に置く。
+
 ### 段階の注記
 
 検討は閉じない。各段階に入るとき、次を仕様の手順に足す。
