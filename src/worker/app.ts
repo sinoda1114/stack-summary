@@ -4,6 +4,9 @@ import { fail, ok } from "./http";
 import { accessAuth } from "./middleware/access-auth";
 import { originCheck } from "./middleware/origin-check";
 import { registerImportRoutes } from "./routes/imports";
+import { registerOverviewRoutes } from "./routes/overview";
+import { registerSubcategoryRoutes } from "./routes/subcategories";
+import { registerTechRoutes } from "./routes/techs";
 
 export const app = new Hono<{ Bindings: Env }>();
 
@@ -22,6 +25,9 @@ app.get("/api/health", (c) => {
 });
 
 registerImportRoutes(app);
+registerOverviewRoutes(app);
+registerTechRoutes(app);
+registerSubcategoryRoutes(app);
 
 app.notFound(async (c) => {
   if (

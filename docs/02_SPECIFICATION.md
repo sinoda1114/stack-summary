@@ -399,7 +399,7 @@ ON CONFLICT (category_id, name) DO NOTHING;
 | メソッド・パス | 内容 |
 | --- | --- |
 | `GET /api/health` | 認証済みなら `{ ok: true }`。JWT が無ければ 403。段階 1 で実装する |
-| `GET /api/overview?status=&tag=&q=` | 全体図。大分類 → 小分類 → 技術（状態・関連メモ数）。小分類が 1 つだけの大分類は、小分類名を返してよいが、画面は出さない（FR-27） |
+| `GET /api/overview?status=&tag=&q=` | 全体図。大分類 → 小分類 → 技術（`id` `name` `status` `memoCount`）。`q` は技術名、別名、理由。大分類は絞る前の小分類数 `subcategoryCount` を返す。一致しない小分類は省く。小分類が 1 つだけの大分類は、小分類名を返してよいが、画面は出さない（FR-27）。関連メモは `memo_date` の降順、空なら `created_at` の降順 |
 | `GET /api/techs/:id` | 技術の詳細（別名・タグ・関連メモを新しい順、最終更新日） |
 | `PATCH /api/techs/:id` | 状態・理由・小分類・タグの更新。変えた項目の出所を `user` にする。小分類を変えたら `classified_by = 'user'` |
 | `POST /api/techs/:id/merge` | §6.10 |
@@ -429,7 +429,7 @@ ON CONFLICT (category_id, name) DO NOTHING;
 
 | 画面 | 内容 | 主な Mantine 部品 |
 | --- | --- | --- |
-| 全体図（ホーム） | 大分類ごとのセクションに、小分類の行と技術のバッジ（状態の色）を並べる。小分類が 1 つだけの大分類は小分類名を出さず、技術だけを並べる。上部に状態・タグ・キーワードの絞り込み | `AppShell`、`SegmentedControl`、`MultiSelect`、`TextInput`、`Badge`、`SimpleGrid`、`Accordion`（スマホ） |
+| 全体図（ホーム） | 大分類ごとのセクションに、小分類の行と技術のバッジ（状態の色）を並べる。小分類が 1 つだけの大分類は小分類名を出さず、技術だけを並べる。絞り込みで残った小分類が 1 件でも、`subcategoryCount` が 2 以上なら名前を出す。絞り込みを変えたら、進行中の取得は捨てる。上部に状態・タグ・キーワードの絞り込み | `AppShell`、`SegmentedControl`、`MultiSelect`、`TextInput`、`Badge`、`SimpleGrid`、`Accordion`（スマホ） |
 | 技術の詳細 | 状態・理由の編集、小分類の移動、別名・タグ、関連メモ（新しい順、関係を表示）、統合 | `Drawer`、`Select`、`Textarea`、`TagsInput`、`Timeline` |
 | 小分類の比較 | 中の技術を状態・理由・関連メモ数・最終更新日で並べる | `Table` |
 | メモ | 検索と一覧、詳細（関連技術・言及・似たメモ）。言及から技術への格上げ | `TextInput`、`Card`、`Anchor` |

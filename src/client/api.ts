@@ -37,6 +37,69 @@ export async function createImport(
   return { ...result, httpStatus: response.status };
 }
 
+export function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "AbortError";
+}
+
+export async function requestJson<T>(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): Promise<ApiResult<T>> {
+  let response: Response;
+  try {
+    response = await fetch(input, init);
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw error;
+    }
+    return failed("network", "通信に失敗しました");
+  }
+  try {
+    if (init?.signal?.aborted) {
+      throw new DOMException("aborted", "AbortError");
+    }
+    return await readJson<T>(response);
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw error;
+    }
+    return failed("invalid", "応答を読めませんでした");
+  }
+}
+
 async function readJson<T>(response: Response): Promise<ApiResult<T>> {
-  return (await response.json()) as ApiResult<T>;
+  const body: unknown = await response.json();
+  if (!isEnvelope(body)) {
+    return failed("invalid", "応答を読めませんでした");
+  }
+  if (!body.success || body.data === null || body.data === undefined) {
+    const error = isApiError(body.error) ? body.error : { code: "failed", message: "取得に失敗しました" };
+    return { success: false, data: null, error };
+  }
+  return { success: true, data: body.data as T, error: null };
+}
+
+function failed(code: string, message: string): ApiResult<never> {
+  return { success: false, data: null, error: { code, message } };
+}
+
+function isEnvelope(body: unknown): body is { success: boolean; data: unknown; error?: unknown } {
+  return (
+    typeof body === "object" &&
+    body !== null &&
+    "success" in body &&
+    typeof body.success === "boolean" &&
+    "data" in body
+  );
+}
+
+function isApiError(error: unknown): error is { code: string; message: string } {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    typeof error.code === "string" &&
+    "message" in error &&
+    typeof error.message === "string"
+  );
 }

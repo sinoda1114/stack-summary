@@ -14,8 +14,22 @@ const CLIENT_DOCUMENT = `<!doctype html>
 
 const EXACT_CLIENT_PATHS = new Set(["/imports"]);
 
+const CLIENT_PREFIXES = ["/techs/", "/subcategories/"];
+
 export function isClientDocumentPath(pathname: string): boolean {
-  return EXACT_CLIENT_PATHS.has(withoutTrailingSlash(pathname));
+  const path = withoutTrailingSlash(pathname);
+  if (EXACT_CLIENT_PATHS.has(path)) {
+    return true;
+  }
+  return CLIENT_PREFIXES.some((prefix) => hasSingleSegment(path, prefix));
+}
+
+function hasSingleSegment(path: string, prefix: string): boolean {
+  if (!path.startsWith(prefix)) {
+    return false;
+  }
+  const rest = path.slice(prefix.length);
+  return rest.length > 0 && !rest.includes("/");
 }
 
 function withoutTrailingSlash(pathname: string): string {

@@ -9,7 +9,7 @@ const sampleSchema = z.object({
   name: z.string(),
   context: z.string(),
   expected: z.object({
-    categoryId: z.string(),
+    categoryId: z.string().nullable(),
     subcategoryId: z.string().nullable(),
   }),
   predicted: labelSchema.optional(),

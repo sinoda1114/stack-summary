@@ -7,18 +7,18 @@ import {
 export const CLASSIFY_PROMPT_VERSION = "classify.v1";
 
 export const classifySchema = z.discriminatedUnion("kind", [
-  z.object({
+  z.strictObject({
     kind: z.enum(["existing"]),
     subcategoryId: z.string(),
     confidence: z.number(),
   }),
-  z.object({
+  z.strictObject({
     kind: z.enum(["new"]),
     categoryId: z.string(),
     name: z.string(),
     confidence: z.number(),
   }),
-  z.object({
+  z.strictObject({
     kind: z.enum(["unclassified"]),
     confidence: z.number(),
   }),

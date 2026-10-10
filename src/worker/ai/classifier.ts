@@ -63,10 +63,8 @@ export function acceptClassification(
       ) {
         return { kind: "unclassified" };
       }
-      if (
-        proposal.name.trim().length === 0 ||
-        CATCH_ALL_NAMES.has(normalizedSubcategoryName(proposal.name))
-      ) {
+      const normalized = normalizedSubcategoryName(proposal.name);
+      if (normalized.length === 0 || CATCH_ALL_NAMES.has(normalized)) {
         return { kind: "unclassified" };
       }
       return {

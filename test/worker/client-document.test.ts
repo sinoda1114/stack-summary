@@ -35,6 +35,21 @@ describe("画面の直接読み込み", () => {
     });
   });
 
+  it("技術詳細と小分類の直接読み込みは SPA", async () => {
+    const tech = await call("/techs/tech_1");
+    const subcategory = await call("/subcategories/sub_1");
+    expect(tech.status).toBe(200);
+    expect(subcategory.status).toBe(200);
+    expect(await tech.text()).toContain('id="root"');
+    expect(await subcategory.text()).toContain('id="root"');
+  });
+
+  it("識別子が無い詳細経路は JSON 404", async () => {
+    const response = await call("/techs");
+    expect(response.status).toBe(404);
+    expect(response.headers.get("content-type")).toContain("application/json");
+  });
+
   it("まだ画面が無い経路は JSON 404", async () => {
     const response = await call("/inbox");
     expect(response.status).toBe(404);

@@ -15,3 +15,7 @@ export const IMPORT_STATUS_LABELS = {
 
 export type TechStatus = keyof typeof TECH_STATUS_LABELS;
 export type ImportStatusLabel = keyof typeof IMPORT_STATUS_LABELS;
+
+export function isTechStatus(value: string): value is TechStatus {
+  return Object.hasOwn(TECH_STATUS_LABELS, value);
+}
