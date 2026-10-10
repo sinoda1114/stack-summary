@@ -35,6 +35,27 @@ describe("分類の正答率", () => {
     expect(missingGoldenMessage()).toContain("次の段階は止めません");
   });
 
+  it("大分類の正答が null で、予測も null なら当たる", () => {
+    const parsed = parseEvalSamples({
+      samples: [
+        {
+          name: "決めきれない",
+          context: "分類できない",
+          expected: { categoryId: null, subcategoryId: null },
+          predicted: { categoryId: null, subcategoryId: null },
+        },
+      ],
+    });
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) {
+      return;
+    }
+    const score = scoreClassification(parsed.samples);
+    expect(score.scored).toBe(1);
+    expect(score.categoryHits).toBe(1);
+    expect(score.subcategoryHits).toBe(1);
+  });
+
   it("予測が無い行は分母に入れず、未分類同士は当たる", () => {
     const samples: EvalSample[] = [
       {
