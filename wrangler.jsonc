@@ -14,7 +14,7 @@
     "ACCESS_TEAM_DOMAIN": "",
     "ACCESS_AUD": "",
     "APP_ORIGIN": "",
-    "GEMINI_MODEL": "",
+    "GEMINI_MODEL": "gemini-flash-latest",
     "IMPORT_MAX_CHARS": "50000"
   },
   "secrets": {
