@@ -8,10 +8,12 @@ export function AppNav() {
     <Group p="md" gap="md">
       <Link to="/">全体図</Link>
       <Link to="/imports">取り込み</Link>
+      <Link to="/memos">メモ</Link>
       {mobile ? null : (
         <>
           <Link to="/inbox">受け箱</Link>
           <Link to="/taxonomy">分類</Link>
+          <Link to="/export">書き出し</Link>
         </>
       )}
     </Group>

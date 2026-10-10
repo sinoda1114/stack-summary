@@ -420,10 +420,16 @@ ON CONFLICT (category_id, name) DO NOTHING;
 | `POST /api/imports` | §6.1。新規は 202、同じ原文は 200 |
 | `GET /api/imports` / `GET /api/imports/:id` | 取り込み履歴と進み具合 |
 | `POST /api/imports/:id/reprocess` | §6.9 |
-| `GET /api/export?format=json\|markdown` | 書き出し（FR-50） |
+| `GET /api/export?format=json\|markdown` | 書き出し（FR-50）。JSON の形は下の書き出しキー |
 
-- 検索は件数が数千件までの想定なので `LIKE` で行う。日本語の分かち書きが要る全文検索（FTS5）は使わない。
+- 検索は件数が数千件までの想定なので `LIKE` で行う。日本語の分かち書きが要る全文検索（FTS5）は使わない。`%` と `_` はエスケープする。
 - ルートは上の資源ごとにファイルを分ける。1 ファイルに畳まない。
+
+JSON 書き出しの `data` は、次のキーを表と 1 対 1 で持つ。各行のキーは列名のままである。別名、関係、言及、タグ、分類の確定（`classified_by`）、原文（`imports.raw_text` と `memos.body`）を含む。
+
+`imports`、`memos`、`memo_urls`、`memo_similars`、`categories`、`subcategories`、`techs`、`tech_aliases`、`memo_techs`、`memo_mentions`、`tags`、`tech_tags`、`memo_tags`
+
+Markdown は同じ表と同じ列を、見出しと行で書く。
 
 ## 8. 画面（React + Mantine）
 

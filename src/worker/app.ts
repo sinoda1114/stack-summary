@@ -4,8 +4,11 @@ import { fail, ok } from "./http";
 import { accessAuth } from "./middleware/access-auth";
 import { originCheck } from "./middleware/origin-check";
 import { registerCategoryRoutes } from "./routes/categories";
+import { registerExportRoutes } from "./routes/export";
 import { registerImportRoutes } from "./routes/imports";
 import { registerInboxRoutes } from "./routes/inbox";
+import { registerMemoRoutes } from "./routes/memos";
+import { registerMentionRoutes } from "./routes/mentions";
 import { registerOverviewRoutes } from "./routes/overview";
 import { registerSubcategoryRoutes } from "./routes/subcategories";
 import { registerTechRoutes } from "./routes/techs";
@@ -27,8 +30,11 @@ app.get("/api/health", (c) => {
 });
 
 registerCategoryRoutes(app);
+registerExportRoutes(app);
 registerImportRoutes(app);
 registerInboxRoutes(app);
+registerMemoRoutes(app);
+registerMentionRoutes(app);
 registerOverviewRoutes(app);
 registerTechRoutes(app);
 registerSubcategoryRoutes(app);
