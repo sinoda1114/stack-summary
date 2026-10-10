@@ -187,7 +187,6 @@ async function attachTech(
           relation: input.relation,
           canonical,
           plan,
-          entries,
           discarded,
         });
         if (attached !== null) {
@@ -202,17 +201,6 @@ async function attachTech(
     }
   }
 
-  const hits = await aliasHits(
-    db,
-    entries.map((entry) => entry.key),
-  );
-  const plan = planTechResolution(entries, hits);
-  if (plan.kind === "conflict") {
-    return { kind: "conflict", techIds: plan.techIds, discarded };
-  }
-  if (plan.kind === "discarded") {
-    return { kind: "discarded", discarded };
-  }
   throw new Error("別名の照合を確定できませんでした");
 }
 
@@ -224,17 +212,14 @@ async function commitAttachment(
     relation: TechRelation;
     canonical: AliasEntry;
     plan: Extract<TechResolutionPlan, { kind: "create" | "attach" }>;
-    entries: readonly AliasEntry[];
     discarded: readonly string[];
   },
 ): Promise<ResolveExtractedTechResult | null> {
-  const creating = input.plan.kind === "create";
   const techId =
     input.plan.kind === "create" ? crypto.randomUUID() : input.plan.techId;
-  let wroteLink = false;
   try {
-    const results = await db.batch([
-      ...(creating
+    await db.batch([
+      ...(input.plan.kind === "create"
         ? [techInsert(db, techId, input.canonical, input.now)]
         : []),
       ...input.plan.aliasesToInsert.map((entry) =>
@@ -242,32 +227,17 @@ async function commitAttachment(
       ),
       linkInsert(db, input.memoId, techId, input.relation),
     ]);
-    wroteLink = results.at(-1)?.meta.changes === 1;
   } catch (error) {
     if (!isLostClaim(error)) {
       throw error;
     }
     return null;
   }
-
-  const hits = await aliasHits(
-    db,
-    input.entries.map((entry) => entry.key),
-  );
-  if (input.entries.some((entry) => hits.get(entry.key) !== techId)) {
-    await releaseMismatchedClaim(db, {
-      creating,
-      techId,
-      memoId: input.memoId,
-      wroteLink,
-    });
-    return null;
-  }
   return {
     kind: "attached",
     techId,
     relation: await storedRelation(db, input.memoId, techId),
-    created: creating,
+    created: input.plan.kind === "create",
     discarded: input.discarded,
   };
 }
@@ -355,28 +325,6 @@ function errorText(error: unknown): string {
   const cause = error.cause;
   const nested = cause instanceof Error ? cause.message : "";
   return `${error.message}\n${nested}`;
-}
-
-async function releaseMismatchedClaim(
-  db: D1Database,
-  input: {
-    creating: boolean;
-    techId: string;
-    memoId: string;
-    wroteLink: boolean;
-  },
-): Promise<void> {
-  if (input.creating) {
-    await db.prepare("DELETE FROM techs WHERE id = ?").bind(input.techId).run();
-    return;
-  }
-  if (!input.wroteLink) {
-    return;
-  }
-  await db
-    .prepare("DELETE FROM memo_techs WHERE memo_id = ? AND tech_id = ?")
-    .bind(input.memoId, input.techId)
-    .run();
 }
 
 function linkInsert(
