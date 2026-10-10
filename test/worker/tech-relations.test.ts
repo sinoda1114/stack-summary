@@ -72,6 +72,10 @@ describe("技術の関係とタグの名寄せ", () => {
       "INSERT INTO tags (id, name, kind) VALUES ('tag-cf', 'Cloudflare', 'vendor')",
     ).run();
     expect(await upsertTag(env.DB, { name: "cloudflare", kind: "vendor" })).toBe("tag-cf");
+    await env.DB.prepare(
+      "INSERT INTO tags (id, name, kind, name_key) VALUES ('tag-spaced', 'Foo  Bar', 'topic', 'foo  bar'), ('tag-folded', 'foo bar', 'topic', 'foo bar')",
+    ).run();
+    expect(await upsertTag(env.DB, { name: "Foo  Bar", kind: "topic" })).toBe("tag-folded");
   });
 
   it("技術の統合は関係を残す側へ移し、自分自身と既存の組は捨てる", async () => {

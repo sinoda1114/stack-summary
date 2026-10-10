@@ -57,25 +57,30 @@ async function findTag(
     )
     .bind(kind)
     .all<{ id: string; name: string; name_key: string | null }>();
-  const match = listed.results.find(
-    (row) => row.name_key === key || tagNameKey(row.name) === key,
-  );
+  const keyed = listed.results.find((row) => row.name_key === key);
+  if (keyed !== undefined) {
+    return keyed.id;
+  }
+  const match = listed.results.find((row) => tagNameKey(row.name) === key);
   if (match === undefined) {
     return null;
   }
-  if (match.name_key !== key) {
-    try {
-      await db
-        .prepare("UPDATE tags SET name_key = ? WHERE id = ?")
-        .bind(key, match.id)
-        .run();
-    } catch (error) {
-      if (!isUnique(error)) {
-        throw error;
-      }
+  try {
+    await db
+      .prepare("UPDATE tags SET name_key = ? WHERE id = ?")
+      .bind(key, match.id)
+      .run();
+    return match.id;
+  } catch (error) {
+    if (!isUnique(error)) {
+      throw error;
     }
   }
-  return match.id;
+  const winner = await db
+    .prepare("SELECT id FROM tags WHERE kind = ? AND name_key = ?")
+    .bind(kind, key)
+    .first<{ id: string }>();
+  return winner?.id ?? match.id;
 }
 
 function isUnique(error: unknown): boolean {
