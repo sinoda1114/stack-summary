@@ -1,10 +1,8 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import {
-  formatEvalReport,
-  parseEvalSamples,
-  scoreClassification,
-} from "../src/worker/ai/score-classification.ts";
+import { parseEvalSamples } from "../src/worker/ai/eval-file.ts";
+import { scoreClassification } from "../src/worker/ai/score-classification.ts";
+import { formatEvalReport, missingGoldenMessage } from "./eval-report.ts";
 
 const path = resolve("eval/golden.local.json");
 
@@ -13,9 +11,7 @@ try {
   text = readFileSync(path, "utf8");
 } catch (error) {
   if (isEnoent(error)) {
-    console.log(
-      "正解サンプルは未確定です。eval/golden.local.json はコミットしません。仮の目安は大分類 90%、小分類 80% で、未達でも次の段階は止めません。",
-    );
+    console.log(missingGoldenMessage());
     process.exit(0);
   }
   throw error;

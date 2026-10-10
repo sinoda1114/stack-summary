@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest";
+import { parseEvalSamples } from "../../src/worker/ai/eval-file";
 import {
-  formatEvalReport,
-  parseEvalSamples,
+  PROVISIONAL_CATEGORY_TARGET,
+  PROVISIONAL_SUBCATEGORY_TARGET,
   scoreClassification,
   type EvalSample,
 } from "../../src/worker/ai/score-classification";
+import {
+  formatEvalReport,
+  missingGoldenMessage,
+} from "../../scripts/eval-report";
 
 describe("分類の正答率", () => {
   it("仮の目安ちょうどは達成になり、下回っても例外にしない", () => {
@@ -18,6 +23,14 @@ describe("分類の正答率", () => {
     expect(missed.categoryHits).toBe(9);
     expect(missed.subcategoryHits).toBe(7);
     expect(formatEvalReport(missed)).toContain("次の段階は止めません");
+    expect(formatEvalReport(met)).toContain("仮の目安に届いています");
+    expect(missingGoldenMessage()).toContain(
+      `${(PROVISIONAL_CATEGORY_TARGET * 100).toFixed(1)}%`,
+    );
+    expect(missingGoldenMessage()).toContain(
+      `${(PROVISIONAL_SUBCATEGORY_TARGET * 100).toFixed(1)}%`,
+    );
+    expect(missingGoldenMessage()).toContain("次の段階は止めません");
   });
 
   it("予測が無い行は分母に入れず、未分類同士は当たる", () => {
