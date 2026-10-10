@@ -9,10 +9,11 @@ export function ImportPage() {
   const [text, setText] = useState("");
   const [sourceLabel, setSourceLabel] = useState("");
   const [message, setMessage] = useState<string | null>(null);
+  const [listNotice, setListNotice] = useState<string | null>(null);
   const [rows, setRows] = useState<ImportItem[]>([]);
 
   useEffect(() => {
-    void reload(setRows, setMessage);
+    void reload(setRows, setListNotice);
   }, []);
 
   async function onSubmit(): Promise<void> {
@@ -23,7 +24,7 @@ export function ImportPage() {
     }
     setMessage(submitMessage(result.httpStatus, result.data));
     setText("");
-    await reload(setRows, setMessage);
+    await reload(setRows, setListNotice);
   }
 
   return (
@@ -48,6 +49,7 @@ export function ImportPage() {
         </Stack>
       )}
       {message === null ? null : <Text>{message}</Text>}
+      {listNotice === null ? null : <Text>{listNotice}</Text>}
       <ImportProgress rows={rows} />
     </Stack>
   );
@@ -68,12 +70,13 @@ function submitMessage(httpStatus: number, item: ImportItem): string {
 
 async function reload(
   setRows: (rows: ImportItem[]) => void,
-  setMessage: (message: string | null) => void,
+  setListNotice: (message: string | null) => void,
 ): Promise<void> {
   const result = await listImports();
   if (!result.success) {
-    setMessage(result.error?.message ?? "取り込み履歴を取得できませんでした");
+    setListNotice(result.error?.message ?? "取り込み履歴を取得できませんでした");
     return;
   }
+  setListNotice(null);
   setRows(result.data);
 }

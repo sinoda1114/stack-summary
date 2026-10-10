@@ -112,7 +112,6 @@ function MemoDetailView(props: { id: string }) {
     }
     const loaded = await loadDetail(props.id);
     if (!loaded.success) {
-      setDetail(null);
       setNotice(loaded.error?.message ?? "メモを取得できませんでした");
       return;
     }
