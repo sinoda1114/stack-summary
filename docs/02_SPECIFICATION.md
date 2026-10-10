@@ -372,7 +372,7 @@ ON CONFLICT (category_id, name) DO NOTHING;
 | 問い合わせの答え | `GEMINI_MODEL_LIGHT` | 渡した一覧から答えの文を書く |
 | 大分類・小分類 | Clef `clef-flash`（未実装） | 渡した一覧から選ぶ。未接続のあいだは生成用の軽いモデルを渡している |
 | 完全一致でない名寄せ | Clef `clef-flash`（未実装） | 候補から同じ技術を選ぶ。完全一致の別名キーはアプリの照合のまま |
-| チャットの質問の振り分け | Clef `clef-flash`（未実装） | 質問の行き先を決めた選択肢から選ぶ。画面は作らない |
+| チャットの質問の振り分け | Clef `clef-flash`（未実装） | 質問の行き先を決めた選択肢から選ぶ。入口は `chatRouter`。未接続のあいだはメモと技術の答えに回す |
 - 仮: 利用枠は有料枠。貼り付け全文を Gemini に送る。他人の発言は除かない。無料枠の規約確認は未了。
 
 ### 6.9 再処理
@@ -428,7 +428,7 @@ ON CONFLICT (category_id, name) DO NOTHING;
 | `GET/POST/PATCH /api/categories` | 大分類の一覧・追加・改名・並べ替え |
 | `GET /api/memos?q=&tag=` | メモの検索（`instr` による部分一致。`%` と `_` は文字として扱う） |
 | `GET /api/memos/:id` | メモの詳細（関連技術・言及・似たメモ） |
-| `POST /api/inquiries` | `{ question }`。答えの文を `GEMINI_MODEL_LIGHT` で書き、`{ answer }` を返す。質問の振り分けはしない。チャットの画面は無い。一覧が空ならモデルを呼ばない。質問は 2000 字まで |
+| `POST /api/inquiries` | `{ question }`。答えの文を `GEMINI_MODEL_LIGHT` で書き、`{ answer }` を返す。質問の振り分けは `chatRouter` が未接続のあいだはしない。画面右下の問い合わせから呼ぶ。一覧が空ならモデルを呼ばない。質問は 2000 字まで |
 | `POST /api/imports` | §6.1。新規は 202、同じ原文は 200 |
 | `GET /api/imports` / `GET /api/imports/:id` | 取り込み履歴と進み具合 |
 | `POST /api/imports/:id/reprocess` | §6.9 |

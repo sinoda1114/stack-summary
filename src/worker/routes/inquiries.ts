@@ -1,4 +1,5 @@
 import type { Hono } from "hono";
+import { routedChatAnswer } from "../ai/chat-router";
 import { geminiGeneratorFromApiKey } from "../ai/gemini";
 import { inquireStack } from "../ai/inquire";
 import { InvalidModelOutput } from "../ai/model-output";
@@ -13,6 +14,10 @@ export function registerInquiryRoutes(app: Hono<{ Bindings: Env }>): void {
     const question = await readQuestion(c.req.raw);
     if (!question.ok) {
       return c.json(fail(question.code, question.message), 400);
+    }
+    const fixed = await routedChatAnswer(question.text);
+    if (fixed !== null) {
+      return c.json(ok({ answer: fixed }));
     }
     const runtime = readGeminiRuntime(c.env);
     if (runtime === null) {
