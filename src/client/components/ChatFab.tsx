@@ -73,12 +73,10 @@ export function ChatFab() {
             role="dialog"
             aria-label="問い合わせ"
             withBorder
-            radius="md"
             p="md"
-            shadow="xs"
             w="min(22rem, calc(100vw - 2.5rem))"
             mah="min(32rem, calc(100vh - 7rem))"
-            bg="var(--mantine-color-body)"
+            bg="var(--mantine-color-white)"
             style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}
           >
             <Group justify="space-between" wrap="nowrap">
@@ -115,10 +113,10 @@ export function ChatFab() {
                           : "none",
                       borderLeft:
                         message.role === "assistant"
-                          ? "2px solid var(--mantine-color-gray-4)"
+                          ? "3px solid var(--mantine-color-ash-4)"
                           : undefined,
                       background:
-                        message.role === "user" ? "var(--mantine-color-gray-0)" : "transparent",
+                        message.role === "user" ? "var(--mantine-color-body)" : "transparent",
                     }}
                   >
                     {message.content}
@@ -164,7 +162,6 @@ export function ChatFab() {
         <Button
           type="button"
           variant="default"
-          radius="xl"
           aria-expanded={open}
           aria-controls={open ? "chat-panel" : undefined}
           onClick={() => setOpen((value) => !value)}
