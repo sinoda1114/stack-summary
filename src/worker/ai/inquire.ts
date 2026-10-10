@@ -1,10 +1,10 @@
+import type { InquiryContext } from "../db/inquiry-context";
 import {
   geminiResponseSchema,
   generateValidated,
   type StructuredGenerator,
 } from "./model-output";
 import {
-  inquireContents,
   inquireSchema,
   inquireSystemPrompt,
   type InquireOutput,
@@ -17,12 +17,7 @@ export async function inquireStack(
   input: {
     model: string;
     question: string;
-    context: {
-      memos: readonly { title: string; body: string; memoDate: string | null }[];
-      techs: readonly { name: string; status: string; reason: string | null }[];
-      memoTruncated: boolean;
-      techTruncated: boolean;
-    };
+    context: InquiryContext;
   },
 ): Promise<InquireOutput> {
   if (input.context.memos.length === 0 && input.context.techs.length === 0) {
@@ -33,12 +28,9 @@ export async function inquireStack(
     {
       model: input.model,
       system: inquireSystemPrompt,
-      contents: inquireContents({
+      contents: JSON.stringify({
         question: input.question,
-        memos: input.context.memos,
-        techs: input.context.techs,
-        memoTruncated: input.context.memoTruncated,
-        techTruncated: input.context.techTruncated,
+        ...input.context,
       }),
       responseJsonSchema: geminiResponseSchema(inquireSchema),
     },

@@ -52,6 +52,7 @@ describe("メモと技術への問い合わせ", () => {
       updatedAt: "2026-10-02T00:00:00.000Z",
     });
     const context = await loadInquiryContext(env.DB);
+    expect(context.detailTruncated).toBe(true);
     expect(context.memos[0]?.body.endsWith("…")).toBe(true);
     expect(context.memos[0]?.body).not.toContain("末尾");
     expect(context.techs).toEqual([
@@ -70,6 +71,7 @@ describe("メモと技術への問い合わせ", () => {
     expect(generator.requests[0]?.contents).toContain("Hono のメモ");
     expect(generator.requests[0]?.contents).toContain("Hono はどうしている？");
     expect(generator.requests[0]?.contents).toContain("様子見");
+    expect(generator.requests[0]?.contents).toContain('"detailTruncated":true');
   });
 
   it("メモが上限を超えたら新しい方だけ渡し、切れたことを伝える", async () => {
@@ -86,6 +88,25 @@ describe("メモと技術への問い合わせ", () => {
     expect(context.memos).toHaveLength(40);
     expect(context.memos[0]?.title).toBe("題40");
     expect(context.memos.some((memo) => memo.title === "題0")).toBe(false);
+    expect(context.detailTruncated).toBe(false);
+  });
+
+  it("同じ日時のメモは id の昇順で 40 件に切る", async () => {
+    const createdAt = "2026-10-01T00:00:00.000Z";
+    for (let index = 0; index < 41; index += 1) {
+      await insertMemo({
+        id: `memo-${String(index).padStart(2, "0")}`,
+        title: `題${String(index).padStart(2, "0")}`,
+        body: "本文",
+        memoDate: null,
+        createdAt,
+      });
+    }
+    const context = await loadInquiryContext(env.DB);
+    expect(context.memoTruncated).toBe(true);
+    expect(context.memos[0]?.title).toBe("題00");
+    expect(context.memos[39]?.title).toBe("題39");
+    expect(context.memos.some((memo) => memo.title === "題40")).toBe(false);
   });
 });
 
@@ -110,13 +131,14 @@ function scripted(responses: readonly string[]): {
 }
 
 async function insertMemo(input: {
+  id?: string;
   title: string;
   body: string;
   memoDate: string | null;
   createdAt: string;
 }): Promise<void> {
   const importId = crypto.randomUUID();
-  const memoId = crypto.randomUUID();
+  const memoId = input.id ?? crypto.randomUUID();
   await env.DB.batch([
     env.DB.prepare(
       `INSERT INTO imports (id, raw_text, raw_hash, status, created_at, updated_at)
