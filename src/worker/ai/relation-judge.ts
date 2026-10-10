@@ -1,15 +1,5 @@
 import type { RelationKind } from "../../shared/relations";
 import type { ClefDecider } from "./clef";
-import {
-  geminiResponseSchema,
-  generateValidated,
-  type StructuredGenerator,
-} from "./model-output";
-import {
-  relationJudgeContents,
-  relationJudgeSchema,
-  relationJudgeSystemPrompt,
-} from "./prompts/relation-judge.v1";
 
 export type { RelationKind };
 
@@ -61,27 +51,6 @@ export function clefRelationJudge(decider: ClefDecider): RelationJudge {
         default:
           return "none";
       }
-    },
-  };
-}
-
-export function lightRelationJudge(
-  generator: StructuredGenerator,
-  model: string,
-): RelationJudge {
-  return {
-    async judge(input: RelationJudgeInput): Promise<RelationJudgment> {
-      const output = await generateValidated(
-        generator,
-        {
-          model,
-          system: relationJudgeSystemPrompt,
-          contents: relationJudgeContents(input),
-          responseJsonSchema: geminiResponseSchema(relationJudgeSchema),
-        },
-        relationJudgeSchema,
-      );
-      return output.kind;
     },
   };
 }
