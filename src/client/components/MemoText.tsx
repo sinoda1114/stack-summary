@@ -1,4 +1,4 @@
-const HTTP_URL = /https?:\/\/[^\s<>]+/g;
+const HTTP_URL = /https?:\/\/[^\s<>]+/gi;
 
 export function MemoText(props: { text: string }) {
   const parts: { text: string; href: string | null }[] = [];

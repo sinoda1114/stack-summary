@@ -1,6 +1,11 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
-import { exportMarkdown, loadExportBundle } from "../../src/worker/db/export-data";
+import {
+  exportMarkdown,
+  loadExportBundle,
+  parseExportMarkdown,
+  type ExportBundle,
+} from "../../src/worker/db/export-data";
 import { loadMemoDetail, searchMemos } from "../../src/worker/db/memo-search";
 import { promoteMention } from "../../src/worker/db/promote-mention";
 
@@ -31,19 +36,19 @@ describe("メモ検索と格上げと書き出し", () => {
     await tagMemo(underscore, "EdgeCase");
 
     const percentHits = await searchMemos(env.DB, { q: "%", tag: "" });
-    expect(percentHits.map((memo) => memo.id)).toEqual([percent]);
+    expect(percentHits.memos.map((memo) => memo.id)).toEqual([percent]);
 
     const underscoreHits = await searchMemos(env.DB, { q: "_", tag: "" });
-    expect(underscoreHits.map((memo) => memo.id)).toEqual([underscore]);
+    expect(underscoreHits.memos.map((memo) => memo.id)).toEqual([underscore]);
 
     const literal = await searchMemos(env.DB, { q: "a_b", tag: "" });
-    expect(literal.map((memo) => memo.id)).toEqual([underscore]);
+    expect(literal.memos.map((memo) => memo.id)).toEqual([underscore]);
 
     const tagged = await searchMemos(env.DB, { q: "", tag: "Edge" });
-    expect(tagged.map((memo) => memo.id)).toEqual([percent]);
+    expect(tagged.memos.map((memo) => memo.id)).toEqual([percent]);
 
     const ordered = await searchMemos(env.DB, { q: "", tag: "" });
-    expect(ordered.map((memo) => memo.id)).toEqual([underscore, percent, plain]);
+    expect(ordered.memos.map((memo) => memo.id)).toEqual([underscore, percent, plain]);
     expect(plain).not.toBe(percent);
   });
 
@@ -62,13 +67,13 @@ describe("メモ検索と格上げと書き出し", () => {
     });
 
     const japaneseHits = await searchMemos(env.DB, { q: japanese, tag: "" });
-    expect(japaneseHits.map((memo) => memo.id)).toEqual([japaneseId]);
+    expect(japaneseHits.memos.map((memo) => memo.id)).toEqual([japaneseId]);
 
     const englishHits = await searchMemos(env.DB, { q: english.toLowerCase(), tag: "" });
-    expect(englishHits.map((memo) => memo.id)).toEqual([englishId]);
+    expect(englishHits.memos.map((memo) => memo.id)).toEqual([englishId]);
   });
 
-  it("検索は 50 件で打ち切る", async () => {
+  it("検索は 50 件を超えて続きを返す", async () => {
     const statements = [];
     for (let index = 0; index < 51; index += 1) {
       const importId = `import-${index}`;
@@ -87,9 +92,13 @@ describe("メモ検索と格上げと書き出し", () => {
     }
     await env.DB.batch(statements);
     const listed = await searchMemos(env.DB, { q: "", tag: "" });
-    expect(listed).toHaveLength(50);
-    expect(listed[0]?.id).toBe("memo-50");
-    expect(listed.some((memo) => memo.id === "memo-0")).toBe(false);
+    expect(listed.memos).toHaveLength(50);
+    expect(listed.memos[0]?.id).toBe("memo-50");
+    expect(listed.memos.some((memo) => memo.id === "memo-0")).toBe(false);
+    expect(listed.nextCursor).not.toBeNull();
+    const rest = await searchMemos(env.DB, { q: "", tag: "", cursor: listed.nextCursor });
+    expect(rest.memos.map((memo) => memo.id)).toEqual(["memo-0"]);
+    expect(rest.nextCursor).toBeNull();
   });
 
   it("詳細は関連技術と言及と似たメモを返す", async () => {
@@ -257,8 +266,28 @@ describe("メモ検索と格上げと書き出し", () => {
     expect(markdown).toContain("body=原文の本文");
     expect(markdown).toContain("## subcategories");
     expect(markdown).toContain("（行なし）");
+
+    const roundTrip = emptyBundle();
+    roundTrip.memos = [
+      {
+        id: "memo-line",
+        title: "",
+        body: "1行目\n2行目",
+        memo_date: null,
+        note: "a | b\\c",
+        count: 2,
+        ready: false,
+      },
+    ];
+    const restored = parseExportMarkdown(exportMarkdown(roundTrip));
+    expect(restored.memos).toEqual(roundTrip.memos);
+    expect(restored.techs).toEqual([]);
   });
 });
+
+function emptyBundle(): ExportBundle {
+  return parseExportMarkdown("# 書き出し\n");
+}
 
 async function insertMemo(input: {
   title: string;

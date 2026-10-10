@@ -1,5 +1,5 @@
 import { MantineProvider } from "@mantine/core";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router";
@@ -75,6 +75,16 @@ describe("メモと書き出しの画面", () => {
       "見る https://example.com/a. と https://example.com/b),; javascript:alert(1)",
     );
     expect(screen.queryByRole("link", { name: /javascript/ })).toBeNull();
+
+    cleanup();
+    render(<MemoText text="資料 HTTP://EXAMPLE.COM/A. と HTTPS://EXAMPLE.COM/B),;" />);
+    const upper = screen.getByRole("link", { name: "HTTP://EXAMPLE.COM/A" });
+    const upperSecure = screen.getByRole("link", { name: "HTTPS://EXAMPLE.COM/B" });
+    expect(upper.getAttribute("href")).toBe("HTTP://EXAMPLE.COM/A");
+    expect(upperSecure.getAttribute("href")).toBe("HTTPS://EXAMPLE.COM/B");
+    expect(upper.parentElement?.textContent).toBe(
+      "資料 HTTP://EXAMPLE.COM/A. と HTTPS://EXAMPLE.COM/B),;",
+    );
   });
 
   it("取得に失敗したら日本語の理由を出す", async () => {
@@ -155,6 +165,92 @@ describe("メモと書き出しの画面", () => {
     expect(screen.getByRole("heading", { name: "題" })).toBeTruthy();
     expect(screen.getByText("本文")).toBeTruthy();
     expect(screen.getByText("言及 Laya")).toBeTruthy();
+  });
+
+  it("経路が変わると前のメモを消し、遅れた格上げの再取得は捨てる", async () => {
+    stubMatch(false);
+    let memo1Gets = 0;
+    let releaseRefresh: ((response: Response) => void) | undefined;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        if (init?.method === "POST") {
+          return Response.json({
+            success: true,
+            data: { techId: "tech-1" },
+            error: null,
+          });
+        }
+        if (url.endsWith("/api/memos/memo-2")) {
+          return Response.json({
+            success: true,
+            data: {
+              id: "memo-2",
+              title: "次の題",
+              body: "次の本文",
+              memoDate: null,
+              techs: [],
+              mentions: [{ name: "New" }],
+              similars: [],
+            },
+            error: null,
+          });
+        }
+        memo1Gets += 1;
+        if (memo1Gets === 1) {
+          return Response.json({
+            success: true,
+            data: {
+              id: "memo-1",
+              title: "前の題",
+              body: "前の本文",
+              memoDate: null,
+              techs: [],
+              mentions: [{ name: "Old" }],
+              similars: [{ id: "memo-2", title: "次の題" }],
+            },
+            error: null,
+          });
+        }
+        return new Promise<Response>((resolve) => {
+          releaseRefresh = resolve;
+        });
+      }),
+    );
+    render(
+      <MantineProvider>
+        <MemoryRouter initialEntries={["/memos/memo-1"]}>
+          <Routes>
+            <Route path="/memos/:id" element={<MemoPage />} />
+          </Routes>
+        </MemoryRouter>
+      </MantineProvider>,
+    );
+    expect(await screen.findByRole("heading", { name: "前の題" })).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "格上げ" }));
+    await waitFor(() => expect(memo1Gets).toBe(2));
+    await userEvent.click(screen.getByRole("link", { name: "次の題" }));
+    expect(screen.queryByText("言及 Old")).toBeNull();
+    expect(await screen.findByRole("heading", { name: "次の題" })).toBeTruthy();
+    releaseRefresh?.(
+      Response.json({
+        success: true,
+        data: {
+          id: "memo-1",
+          title: "前の題",
+          body: "格上げ後",
+          memoDate: null,
+          techs: [],
+          mentions: [],
+          similars: [],
+        },
+        error: null,
+      }),
+    );
+    expect(await screen.findByText("言及 New")).toBeTruthy();
+    expect(screen.queryByText("格上げ後")).toBeNull();
+    expect(screen.getByRole("heading", { name: "次の題" })).toBeTruthy();
   });
 });
 

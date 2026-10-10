@@ -1,5 +1,5 @@
 import { Button, Stack, Text, TextInput, Title } from "@mantine/core";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
 import { requestJson } from "../api";
 import { MemoText } from "../components/MemoText";
@@ -9,6 +9,11 @@ type MemoListItem = {
   id: string;
   title: string;
   memoDate: string | null;
+};
+
+type MemoSearchPage = {
+  memos: MemoListItem[];
+  nextCursor: string | null;
 };
 
 type MemoDetail = {
@@ -34,7 +39,10 @@ export function MemoPage() {
 function MemoSearch() {
   const [q, setQ] = useState("");
   const [memos, setMemos] = useState<MemoListItem[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const qRef = useRef(q);
+  qRef.current = q;
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -43,22 +51,47 @@ function MemoSearch() {
     }
     const query = params.size === 0 ? "" : `?${params.toString()}`;
     let current = true;
-    void requestJson<MemoListItem[]>(`/api/memos${query}`).then((result) => {
+    void requestJson<MemoSearchPage>(`/api/memos${query}`).then((result) => {
       if (!current) {
         return;
       }
       if (!result.success) {
         setMemos([]);
+        setNextCursor(null);
         setNotice(result.error?.message ?? "メモを取得できませんでした");
         return;
       }
       setNotice(null);
-      setMemos(result.data);
+      setMemos(result.data.memos);
+      setNextCursor(result.data.nextCursor);
     });
     return () => {
       current = false;
     };
   }, [q]);
+
+  async function loadMore(): Promise<void> {
+    if (nextCursor === null) {
+      return;
+    }
+    const queryAtStart = q;
+    const params = new URLSearchParams();
+    if (queryAtStart.trim().length > 0) {
+      params.set("q", queryAtStart.trim());
+    }
+    params.set("cursor", nextCursor);
+    const result = await requestJson<MemoSearchPage>(`/api/memos?${params.toString()}`);
+    if (qRef.current !== queryAtStart) {
+      return;
+    }
+    if (!result.success) {
+      setNotice(result.error?.message ?? "メモを取得できませんでした");
+      return;
+    }
+    setNotice(null);
+    setMemos((current) => [...current, ...result.data.memos]);
+    setNextCursor(result.data.nextCursor);
+  }
 
   return (
     <Stack p="md">
@@ -72,6 +105,9 @@ function MemoSearch() {
           </Link>
         </Text>
       ))}
+      {nextCursor === null ? null : (
+        <Button onClick={() => void loadMore()}>続きを見る</Button>
+      )}
     </Stack>
   );
 }
@@ -80,11 +116,20 @@ function MemoDetailView(props: { id: string }) {
   const mobile = useIsMobile();
   const [detail, setDetail] = useState<MemoDetail | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [seenId, setSeenId] = useState(props.id);
+  const idRef = useRef(props.id);
+  idRef.current = props.id;
+  if (seenId !== props.id) {
+    setSeenId(props.id);
+    setDetail(null);
+    setNotice(null);
+  }
 
   useEffect(() => {
     let current = true;
-    void loadDetail(props.id).then((result) => {
-      if (!current) {
+    const id = props.id;
+    void loadDetail(id).then((result) => {
+      if (!current || idRef.current !== id) {
         return;
       }
       if (!result.success) {
@@ -101,16 +146,23 @@ function MemoDetailView(props: { id: string }) {
   }, [props.id]);
 
   async function promote(name: string): Promise<void> {
+    const memoId = props.id;
     const result = await requestJson<{ techId: string }>(`/api/mentions/promote`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ memoId: props.id, name }),
+      body: JSON.stringify({ memoId, name }),
     });
+    if (idRef.current !== memoId) {
+      return;
+    }
     if (!result.success) {
       setNotice(result.error?.message ?? "格上げに失敗しました");
       return;
     }
-    const loaded = await loadDetail(props.id);
+    const loaded = await loadDetail(memoId);
+    if (idRef.current !== memoId) {
+      return;
+    }
     if (!loaded.success) {
       setNotice(loaded.error?.message ?? "メモを取得できませんでした");
       return;
@@ -122,7 +174,7 @@ function MemoDetailView(props: { id: string }) {
   if (notice !== null && detail === null) {
     return <Text p="md">{notice}</Text>;
   }
-  if (detail === null) {
+  if (detail === null || detail.id !== props.id) {
     return <Text p="md">読み込み中</Text>;
   }
 
