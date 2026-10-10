@@ -1,8 +1,9 @@
-import { Button, Select, Stack, Text, Textarea, Title } from "@mantine/core";
+import { Button, Group, Select, Stack, Text, Textarea, Title } from "@mantine/core";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router";
 import { isTechStatus, TECH_STATUS_LABELS, type TechStatus } from "../../shared/labels";
 import { requestJson } from "../api";
+import { TechStatusMark } from "../components/StatusMark";
 import { useIsMobile } from "../hooks/useIsMobile";
 
 type TechDetail = {
@@ -55,10 +56,10 @@ export function TechPage() {
   }, [params.id]);
 
   if (notice !== null && detail === null) {
-    return <Text p="md">{notice}</Text>;
+    return <Text className="note">{notice}</Text>;
   }
   if (detail === null || status === null) {
-    return <Text p="md">読み込み中</Text>;
+    return <Text className="meta">読み込み中</Text>;
   }
 
   const selectedStatus = status;
@@ -81,16 +82,18 @@ export function TechPage() {
   }
 
   return (
-    <Stack p="md">
+    <Stack className="page" gap="lg">
       <Title order={1}>{detail.name}</Title>
-      {notice === null ? null : <Text>{notice}</Text>}
-      <Text>最終更新 {detail.updatedAt}</Text>
-      <Text>別名 {detail.aliases.map((alias) => alias.label).join("、")}</Text>
+      {notice === null ? null : <Text className="note">{notice}</Text>}
+      <Text className="meta">最終更新 {detail.updatedAt}</Text>
+      <Text className="meta">別名 {detail.aliases.map((alias) => alias.label).join("、")}</Text>
       {mobile ? (
-        <Text>
-          {TECH_STATUS_LABELS[detail.status]} {detail.reason ?? ""}
-        </Text>
+        <Group gap="sm">
+          <TechStatusMark status={detail.status} />
+          <Text>{detail.reason ?? ""}</Text>
+        </Group>
       ) : (
+        <div className="section-card">
         <Stack>
           <Select
             label="状態"
@@ -107,14 +110,17 @@ export function TechPage() {
           <Button onClick={() => void save()}>保存</Button>
           <MergeBox sourceId={params.id} />
         </Stack>
+        </div>
       )}
-      <Stack>
-        {detail.memos.map((memo) => (
-          <Text key={memo.id}>
-            {memo.memoDate ?? "日付なし"} {RELATION_LABELS[memo.relation]} {memo.title}
-          </Text>
-        ))}
-      </Stack>
+      {detail.memos.length === 0 ? null : (
+        <Stack gap={0} className="record-list">
+          {detail.memos.map((memo) => (
+            <Text key={memo.id} className="record-row">
+              {memo.memoDate ?? "日付なし"} {RELATION_LABELS[memo.relation]} {memo.title}
+            </Text>
+          ))}
+        </Stack>
+      )}
     </Stack>
   );
 }

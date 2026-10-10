@@ -115,9 +115,9 @@ export function InboxPage() {
   const firstFresh = fresh[0];
 
   return (
-    <Stack p="md">
+    <Stack className="page" gap="lg">
       <Title order={1}>受け箱</Title>
-      {notice === null ? null : <Text>{notice}</Text>}
+      {notice === null ? null : <Text className="note">{notice}</Text>}
       {mobile ? <Text>この幅では管理操作を出しません。</Text> : null}
       <Tabs defaultValue="unrated">
         <Tabs.List>
@@ -130,7 +130,7 @@ export function InboxPage() {
             <Text>未評価の技術はありません。</Text>
           ) : (
             <Stack>
-              <Text>
+              <Text className="current-name">
                 {current.name} <Kbd>次へ</Kbd>
               </Text>
               {mobile ? (
@@ -153,19 +153,28 @@ export function InboxPage() {
           )}
         </Tabs.Panel>
         <Tabs.Panel value="unclassified">
-          {unclassified.map((tech) => (
-            <Text key={tech.id}>
-              <Link to={`/techs/${tech.id}`}>{tech.name}</Link>
-            </Text>
-          ))}
+          {unclassified.length === 0 ? null : (
+            <Stack gap={0} className="record-list">
+              {unclassified.map((tech) => (
+                <Text key={tech.id} className="record-row">
+                  <Link to={`/techs/${tech.id}`}>{tech.name}</Link>
+                </Text>
+              ))}
+            </Stack>
+          )}
         </Tabs.Panel>
         <Tabs.Panel value="fresh">
-          {fresh.map((item) => (
-            <Text key={item.id}>
-              {item.categoryName} / {item.name}
-            </Text>
-          ))}
+          {fresh.length === 0 ? null : (
+            <Stack gap={0} className="record-list">
+              {fresh.map((item) => (
+                <Text key={item.id} className="record-row">
+                  {item.categoryName} / {item.name}
+                </Text>
+              ))}
+            </Stack>
+          )}
           {mobile || firstFresh === undefined ? null : (
+            <div className="section-card">
             <Stack>
               <TextInput label="改名" value={rename} onChange={(event) => setRename(event.currentTarget.value)} />
               <Button onClick={() => void confirm(firstFresh.id, { name: rename })}>改名</Button>
@@ -195,6 +204,7 @@ export function InboxPage() {
               <Button onClick={() => void mergeFresh(firstFresh.id)}>統合</Button>
               <Button onClick={() => void confirm(firstFresh.id, { reviewed: true })}>確認済み</Button>
             </Stack>
+            </div>
           )}
         </Tabs.Panel>
       </Tabs>

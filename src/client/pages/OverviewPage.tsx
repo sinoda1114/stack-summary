@@ -62,17 +62,19 @@ export function OverviewPage() {
   }, [status, q]);
 
   const sections = categories.map((category) => (
-    <Stack key={category.id} gap="xs">
-      <Title order={2}>{category.name}</Title>
-      <CategoryBody category={category} />
-    </Stack>
+    <div key={category.id} className="section-card">
+      <Stack gap="md">
+        <Title order={2}>{category.name}</Title>
+        <CategoryBody category={category} />
+      </Stack>
+    </div>
   ));
 
   return (
-    <Stack p="md">
+    <Stack className="page" gap="lg">
       <Title order={1}>全体図</Title>
-      {loadError === null ? null : <Text>{loadError}</Text>}
-      <Group>
+      {loadError === null ? null : <Text className="note">{loadError}</Text>}
+      <Group align="flex-end" gap="md">
         <Select
           label="状態"
           placeholder="すべて"
@@ -105,11 +107,13 @@ function CategoryBody(props: { category: OverviewCategory }) {
   return (
     <>
       {props.category.subcategories.map((subcategory) => (
-        <Stack key={subcategory.id} gap={4}>
+        <Stack key={subcategory.id} gap="xs" className="subcategory">
           {showsSubcategoryName(props.category) ? (
-            <Link to={`/subcategories/${subcategory.id}`}>{subcategory.name}</Link>
+            <Text className="subhead">
+              <Link to={`/subcategories/${subcategory.id}`}>{subcategory.name}</Link>
+            </Text>
           ) : null}
-          <Group>
+          <Group gap="xs">
             {subcategory.techs.map((tech) => (
               <TechBadge key={tech.id} id={tech.id} name={tech.name} status={tech.status} />
             ))}

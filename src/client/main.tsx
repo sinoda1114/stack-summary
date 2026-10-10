@@ -5,13 +5,15 @@ import { BrowserRouter, Route, Routes } from "react-router";
 import { AppNav } from "./components/AppNav";
 import { ExportPage } from "./pages/ExportPage";
 import { ImportPage } from "./pages/ImportPage";
-import { MemoPage } from "./pages/MemoPage";
 import { InboxPage } from "./pages/InboxPage";
+import { MemoPage } from "./pages/MemoPage";
 import { OverviewPage } from "./pages/OverviewPage";
 import { SubcategoryPage } from "./pages/SubcategoryPage";
 import { TaxonomyPage } from "./pages/TaxonomyPage";
 import { TechPage } from "./pages/TechPage";
+import { cssVariablesResolver, theme } from "./theme";
 import "@mantine/core/styles.css";
+import "./theme.css";
 
 const root = document.querySelector("#root");
 if (root === null) {
@@ -20,20 +22,26 @@ if (root === null) {
 
 createRoot(root).render(
   <StrictMode>
-    <MantineProvider>
+    <MantineProvider
+      theme={theme}
+      cssVariablesResolver={cssVariablesResolver}
+      defaultColorScheme="light"
+    >
       <BrowserRouter>
-        <AppNav />
-        <Routes>
-          <Route path="/" element={<OverviewPage />} />
-          <Route path="/imports" element={<ImportPage />} />
-          <Route path="/memos" element={<MemoPage />} />
-          <Route path="/memos/:id" element={<MemoPage />} />
-          <Route path="/export" element={<ExportPage />} />
-          <Route path="/inbox" element={<InboxPage />} />
-          <Route path="/taxonomy" element={<TaxonomyPage />} />
-          <Route path="/techs/:id" element={<TechPage />} />
-          <Route path="/subcategories/:id" element={<SubcategoryPage />} />
-        </Routes>
+        <div className="sheet">
+          <AppNav />
+          <Routes>
+            <Route path="/" element={<OverviewPage />} />
+            <Route path="/imports" element={<ImportPage />} />
+            <Route path="/memos" element={<MemoPage />} />
+            <Route path="/memos/:id" element={<MemoPage />} />
+            <Route path="/export" element={<ExportPage />} />
+            <Route path="/inbox" element={<InboxPage />} />
+            <Route path="/taxonomy" element={<TaxonomyPage />} />
+            <Route path="/techs/:id" element={<TechPage />} />
+            <Route path="/subcategories/:id" element={<SubcategoryPage />} />
+          </Routes>
+        </div>
       </BrowserRouter>
     </MantineProvider>
   </StrictMode>,

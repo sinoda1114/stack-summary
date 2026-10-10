@@ -1,6 +1,6 @@
 import { Table, Text } from "@mantine/core";
-import { IMPORT_STATUS_LABELS } from "../../shared/labels";
 import type { ImportItem } from "../api";
+import { ImportStatusMark } from "./StatusMark";
 
 export function ImportProgress(props: { rows: readonly ImportItem[] }) {
   if (props.rows.length === 0) {
@@ -19,7 +19,9 @@ export function ImportProgress(props: { rows: readonly ImportItem[] }) {
       <Table.Tbody>
         {props.rows.map((row) => (
           <Table.Tr key={row.id}>
-            <Table.Td>{IMPORT_STATUS_LABELS[row.status]}</Table.Td>
+            <Table.Td>
+              <ImportStatusMark status={row.status} />
+            </Table.Td>
             <Table.Td>{row.memoCount}</Table.Td>
             <Table.Td>{row.skippedCount}</Table.Td>
             <Table.Td>{row.error ?? ""}</Table.Td>
