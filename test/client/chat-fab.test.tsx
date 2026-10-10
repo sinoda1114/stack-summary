@@ -9,7 +9,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("問い合わせ", () => {
+describe("AIチャット", () => {
   it("閉じたボタンからパネルを開き、根拠のある返事を出す", async () => {
     stubBrowser();
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -32,8 +32,9 @@ describe("問い合わせ", () => {
     );
 
     expect(screen.queryByRole("dialog")).toBeNull();
-    await userEvent.click(screen.getByRole("button", { name: "問い合わせ" }));
-    expect(screen.getByRole("dialog", { name: "問い合わせ" })).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "AIチャット" }));
+    expect(screen.getByRole("dialog", { name: "AIチャット" })).toBeTruthy();
+    expect(screen.getByText("AIチャット")).toBeTruthy();
     expect(screen.getByText(/取り込んだメモと技術について聞けます/)).toBeTruthy();
 
     await userEvent.type(screen.getByLabelText("質問"), "Hono は？");
@@ -63,7 +64,7 @@ describe("問い合わせ", () => {
       </MantineProvider>,
     );
 
-    await userEvent.click(screen.getByRole("button", { name: "問い合わせ" }));
+    await userEvent.click(screen.getByRole("button", { name: "AIチャット" }));
     await userEvent.type(screen.getByLabelText("質問"), "分からないこと");
     await userEvent.click(screen.getByRole("button", { name: "送る" }));
     expect(await screen.findByText("回答を作れませんでした")).toBeTruthy();

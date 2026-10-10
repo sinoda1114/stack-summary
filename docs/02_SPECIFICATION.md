@@ -455,7 +455,7 @@ ON CONFLICT (category_id, name) DO NOTHING;
 | `GET/POST/PATCH /api/categories` | 大分類の一覧・追加・改名・並べ替え |
 | `GET /api/memos?q=&tag=` | メモの検索（`instr` による部分一致。`%` と `_` は文字として扱う） |
 | `GET /api/memos/:id` | メモの詳細（関連技術・言及・似たメモ） |
-| `POST /api/inquiries` | `{ question }`。先に `chatRouter` の Clef で振り分ける。メモと技術への質問だけ、答えの文を `GEMINI_MODEL_LIGHT` で書き `{ answer }` を返す。使い方と対象外は決めた文を返し、軽いモデルは呼ばない。画面右下の問い合わせから呼ぶ。一覧が空ならモデルを呼ばない。質問は 2000 字まで |
+| `POST /api/inquiries` | `{ question }`。先に `chatRouter` の Clef で振り分ける。メモと技術への質問だけ、答えの文を `GEMINI_MODEL_LIGHT` で書き `{ answer }` を返す。使い方と対象外は決めた文を返し、軽いモデルは呼ばない。画面右下の AIチャット から呼ぶ。一覧が空ならモデルを呼ばない。質問は 2000 字まで |
 | `POST /api/imports` | §6.1。新規は 202、同じ原文は 200 |
 | `GET /api/imports` / `GET /api/imports/:id` | 取り込み履歴と進み具合 |
 | `POST /api/imports/:id/reprocess` | §6.9 |

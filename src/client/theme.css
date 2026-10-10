@@ -214,6 +214,43 @@ body {
   white-space: pre-wrap;
 }
 
+.chat-dock {
+  position: fixed;
+  z-index: 200;
+  right: max(16px, env(safe-area-inset-right, 0px));
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+}
+
+.chat-panel {
+  width: min(22rem, calc(100vw - 32px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)));
+  max-height: min(32rem, calc(100dvh - 7rem));
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+
+.chat-body {
+  min-height: 0;
+}
+
+.chat-fab {
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: var(--mantine-color-accent-6);
+  color: var(--mantine-color-white);
+  cursor: pointer;
+}
+
+.chat-fab:focus-visible {
+  outline: 2px solid var(--mantine-color-accent-6);
+  outline-offset: 3px;
+}
+
 @media (max-width: 767px) {
   .app-shell {
     flex-direction: column;
@@ -228,5 +265,13 @@ body {
 
   .sheet {
     padding: 24px 16px 96px;
+  }
+
+  .chat-panel {
+    max-height: calc(100dvh - 21rem - env(safe-area-inset-bottom, 0px));
+  }
+
+  .chat-log {
+    max-height: 8rem;
   }
 }

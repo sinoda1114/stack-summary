@@ -1,4 +1,4 @@
-import { Affix, Button, CloseButton, Group, Paper, Stack, Text, Textarea } from "@mantine/core";
+import { Button, CloseButton, Group, Paper, Stack, Text, Textarea } from "@mantine/core";
 import { useEffect, useRef, useState } from "react";
 import { askChat } from "../api";
 
@@ -64,23 +64,22 @@ export function ChatFab() {
   }
 
   return (
-    <Affix position={{ bottom: 20, right: 20 }} zIndex={200}>
+    <div className="chat-dock">
       <Stack align="flex-end" gap="sm">
         {open ? (
           <Paper
             id="chat-panel"
+            className="chat-panel"
             component="section"
             role="dialog"
-            aria-label="問い合わせ"
+            aria-label="AIチャット"
             withBorder
             p="md"
-            w="min(22rem, calc(100vw - 2.5rem))"
-            mah="min(32rem, calc(100vh - 7rem))"
             bg="var(--mantine-color-white)"
           >
-            <Stack gap="sm">
+            <Stack gap="sm" className="chat-body">
               <Group justify="space-between" wrap="nowrap">
-                <Text fw={500}>問い合わせ</Text>
+                <Text fw={500}>AIチャット</Text>
                 <CloseButton aria-label="閉じる" onClick={() => setOpen(false)} />
               </Group>
               <div ref={listRef} className="chat-log">
@@ -140,16 +139,35 @@ export function ChatFab() {
             </Stack>
           </Paper>
         ) : null}
-        <Button
+        <button
           type="button"
-          variant="default"
+          className="chat-fab"
+          aria-label="AIチャット"
           aria-expanded={open}
           aria-controls={open ? "chat-panel" : undefined}
           onClick={() => setOpen((value) => !value)}
         >
-          問い合わせ
-        </Button>
+          <BubbleIcon />
+        </button>
       </Stack>
-    </Affix>
+    </div>
+  );
+}
+
+function BubbleIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="24"
+      height="24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M6.2 16.6 4.2 19.4V7.6A2.4 2.4 0 0 1 6.6 5.2h10.8a2.4 2.4 0 0 1 2.4 2.4v6.6a2.4 2.4 0 0 1-2.4 2.4H8.1z" />
+    </svg>
   );
 }
