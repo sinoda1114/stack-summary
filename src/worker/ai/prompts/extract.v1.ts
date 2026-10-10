@@ -2,14 +2,14 @@ import { z } from "zod";
 
 export const EXTRACT_PROMPT_VERSION = "extract.v1";
 
-export const extractTechSchema = z.object({
+export const extractTechSchema = z.strictObject({
   techs: z.array(
-    z.object({
+    z.strictObject({
       name: z.string(),
       relation: z.enum(["subject", "comparison", "mention"]),
       aliases: z.array(z.string()),
       tags: z.array(
-        z.object({
+        z.strictObject({
           name: z.string(),
           kind: z.enum(["topic", "vendor", "project"]),
         }),
