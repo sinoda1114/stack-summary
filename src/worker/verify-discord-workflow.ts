@@ -39,118 +39,51 @@ const STEP: WorkflowStepConfig = {
 
 const EMPTY_EXTRACT: ExtractTechOutput = { techs: [] };
 
-export class VerifyDiscordWorkflow extends WorkflowEntrypoint<Env, Record<string, never>> {
+export type VerifyDiscordJob =
+  | { op: "extract"; postId: string }
+  | { op: "apply"; memoId: string; index: number }
+  | { op: "clef"; techId: string }
+  | { op: "sample"; techId: string }
+  | { op: "finish" };
+
+export class VerifyDiscordWorkflow extends WorkflowEntrypoint<Env, VerifyDiscordJob> {
   override async run(
-    event: WorkflowEvent<Record<string, never>>,
+    event: WorkflowEvent<VerifyDiscordJob>,
     step: WorkflowStep,
   ): Promise<void> {
-    void event;
-    const ids = await step.do("list-posts", STEP, async () => {
-      const listed = await this.env.DB.prepare(
-        "SELECT post_id FROM verify_posts ORDER BY CAST(post_id AS INTEGER)",
-      ).all<{ post_id: string }>();
-      return listed.results.map((row) => row.post_id);
-    });
-    for (const postId of ids) {
-      await step.do(`memo-${postId}`, STEP, async () => {
-        try {
-          await extractPost(this.env, postId);
-          return { ok: true as const };
-        } catch (error) {
-          await rememberNote(this.env.DB, publicModelError(error));
-          return { ok: false as const };
-        }
-      });
-      // 同じ呼び出しにステップがまとまると、無料プランの subrequest 上限で落ちる。
-      await step.sleep(`pause-memo-${postId}`, "1 second");
-    }
-    const applyJobs = await step.do("list-applies", STEP, async () => {
-      const listed = await this.env.DB.prepare(
-        "SELECT memo_id, payload FROM verify_extracts ORDER BY memo_id",
-      ).all<{ memo_id: string; payload: string }>();
-      const jobs: { memoId: string; index: number }[] = [];
-      for (const row of listed.results) {
-        const extracted = parseStoredExtract(row.payload);
-        for (let index = 0; index < extracted.techs.length; index += 1) {
-          jobs.push({ memoId: row.memo_id, index });
-        }
+    await step.do("once", STEP, async () => {
+      try {
+        await runJob(this.env, event.payload);
+        return { ok: true as const };
+      } catch (error) {
+        await rememberNote(this.env.DB, publicModelError(error));
+        return { ok: false as const };
       }
-      return jobs;
     });
-    for (const [index, job] of applyJobs.entries()) {
-      await step.do(`apply-${index}`, STEP, async () => {
-        try {
-          await applyOneTech(this.env, job.memoId, job.index);
-          return { ok: true as const };
-        } catch (error) {
-          await rememberNote(this.env.DB, publicModelError(error));
-          return { ok: false as const };
-        }
-      });
-      await step.sleep(`pause-apply-${index}`, "1 second");
+  }
+}
+
+async function runJob(env: Env, job: VerifyDiscordJob): Promise<void> {
+  switch (job.op) {
+    case "extract":
+      await extractPost(env, job.postId);
+      return;
+    case "apply":
+      await applyOneTech(env, job.memoId, job.index);
+      return;
+    case "clef":
+      await classifyOne(env, job.techId);
+      return;
+    case "sample":
+      await compareOne(env, job.techId);
+      return;
+    case "finish":
+      await markDone(env.DB);
+      return;
+    default: {
+      const unexpected: never = job;
+      throw new Error(`未知の処理です: ${String(unexpected)}`);
     }
-    const techIds = await step.do("list-techs", STEP, async () => {
-      const listed = await this.env.DB.prepare(
-        `SELECT id FROM techs
-         WHERE (classified_by IS NULL OR classified_by <> 'user')
-           AND NOT EXISTS (
-             SELECT 1 FROM verify_model_calls c
-             WHERE c.kind = 'clef' AND c.call_key = techs.id
-           )
-         ORDER BY name
-         LIMIT ?`,
-      )
-        .bind(VERIFY_CALL_LIMIT)
-        .all<{ id: string }>();
-      return listed.results.map((row) => row.id);
-    });
-    let clefStopped = false;
-    for (const [index, techId] of techIds.entries()) {
-      if (clefStopped) {
-        break;
-      }
-      const result = await step.do(`clef-${index}`, STEP, async () => {
-        try {
-          const classified = await classifyOne(this.env, techId);
-          return { classified, stop: false };
-        } catch (error) {
-          await rememberNote(this.env.DB, publicModelError(error));
-          return { classified: false, stop: true };
-        }
-      });
-      clefStopped = result.stop;
-      await step.sleep(`pause-clef-${index}`, "1 second");
-    }
-    const sampleIds = await step.do("list-sample", STEP, async () => {
-      const listed = await this.env.DB.prepare(
-        `SELECT id FROM techs
-         WHERE prompt_version = 'clef-flash.v1'
-         ORDER BY name
-         LIMIT 10`,
-      ).all<{ id: string }>();
-      return listed.results.map((row) => row.id);
-    });
-    let sampleStopped = false;
-    for (const [index, techId] of sampleIds.entries()) {
-      if (sampleStopped) {
-        break;
-      }
-      const result = await step.do(`sample-${index}`, STEP, async () => {
-        try {
-          const compared = await compareOne(this.env, techId);
-          return { compared, stop: false };
-        } catch (error) {
-          await rememberNote(this.env.DB, publicModelError(error));
-          return { compared: false, stop: true };
-        }
-      });
-      sampleStopped = result.stop;
-      await step.sleep(`pause-sample-${index}`, "1 second");
-    }
-    await step.do("finish", STEP, async () => {
-      await markDone(this.env.DB);
-      return { ok: true as const };
-    });
   }
 }
 
