@@ -4,12 +4,25 @@ export type TechRelation = "subject" | "comparison";
 
 export type ExtractedRelation = TechRelation | "mention";
 
+export type NearNameDecision =
+  | { kind: "existing"; techId: string }
+  | { kind: "new" };
+
+export type NearNameMatch = (input: {
+  db: D1Database;
+  name: string;
+  entries: readonly AliasEntry[];
+  context: string;
+}) => Promise<NearNameDecision>;
+
 export type ResolveExtractedTechInput = {
   memoId: string;
   name: string;
   aliases: readonly string[];
   relation: ExtractedRelation;
   now: string;
+  context?: string;
+  matchNear?: NearNameMatch;
 };
 
 export type ResolveExtractedTechResult =
@@ -96,6 +109,8 @@ export async function resolveExtractedTech(
           name: input.name,
           now: input.now,
           relation: input.relation,
+          context: input.context,
+          matchNear: input.matchNear,
         },
         entries,
         discarded,
@@ -158,6 +173,8 @@ async function attachTech(
     name: string;
     now: string;
     relation: TechRelation;
+    context?: string;
+    matchNear?: NearNameMatch;
   },
   entries: readonly AliasEntry[],
   discarded: readonly string[],
@@ -182,12 +199,13 @@ async function attachTech(
         return { kind: "conflict", techIds: plan.techIds, discarded };
       case "create":
       case "attach": {
+        const planned = await planWithNearMatch(db, input, entries, hits, plan);
         const attached = await commitAttachment(db, {
           memoId: input.memoId,
           now: input.now,
           relation: input.relation,
           canonical,
-          plan,
+          plan: planned,
           discarded,
         });
         if (attached !== null) {
@@ -203,6 +221,43 @@ async function attachTech(
   }
 
   throw new Error("別名の照合を確定できませんでした");
+}
+
+async function planWithNearMatch(
+  db: D1Database,
+  input: {
+    name: string;
+    context?: string;
+    matchNear?: NearNameMatch;
+  },
+  entries: readonly AliasEntry[],
+  hits: ReadonlyMap<string, string>,
+  plan: Extract<TechResolutionPlan, { kind: "create" | "attach" }>,
+): Promise<Extract<TechResolutionPlan, { kind: "create" | "attach" }>> {
+  if (plan.kind !== "create" || input.matchNear === undefined) {
+    return plan;
+  }
+  const decision = await input.matchNear({
+    db,
+    name: input.name,
+    entries,
+    context: input.context ?? "",
+  });
+  if (decision.kind !== "existing") {
+    return plan;
+  }
+  const row = await db
+    .prepare("SELECT id FROM techs WHERE id = ?")
+    .bind(decision.techId)
+    .first<{ id: string }>();
+  if (row === null) {
+    return plan;
+  }
+  return {
+    kind: "attach",
+    techId: decision.techId,
+    aliasesToInsert: entries.filter((entry) => !hits.has(entry.key)),
+  };
 }
 
 async function commitAttachment(

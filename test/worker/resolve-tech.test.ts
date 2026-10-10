@@ -1,5 +1,7 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
+import type { ClefDecider } from "../../src/worker/ai/clef";
+import { nearTechMatcher } from "../../src/worker/ai/clef-name-match";
 import {
   planTechResolution,
   resolveExtractedTech,
@@ -141,6 +143,116 @@ describe("別名の照合と新機能の解決", () => {
       return;
     }
     expect(workers.techId).not.toBe(cloudflare.techId);
+    expect(await techCount()).toBe(2);
+  });
+
+  it("別名キーの完全一致は Clef を呼ばず batch のまま結ぶ", async () => {
+    const first = await resolveExtractedTech(env.DB, {
+      memoId: await insertMemo(),
+      name: "Cloudflare Workers",
+      aliases: ["Workers"],
+      relation: "subject",
+      now: NOW,
+    });
+    let calls = 0;
+    const second = await resolveExtractedTech(env.DB, {
+      memoId: await insertMemo(),
+      name: "Workers",
+      aliases: [],
+      relation: "subject",
+      now: NOW,
+      matchNear: async () => {
+        calls += 1;
+        return { kind: "new" };
+      },
+    });
+    expect(calls).toBe(0);
+    expect(attachedId(second)).toBe(attachedId(first));
+    expect(second.kind === "attached" && second.created).toBe(false);
+  });
+
+  it("完全一致しない近い呼び方は Clef の既存技術へ batch で別名を足す", async () => {
+    const existing = await resolveExtractedTech(env.DB, {
+      memoId: await insertMemo(),
+      name: "Cloudflare Workers",
+      aliases: [],
+      relation: "subject",
+      now: NOW,
+    });
+    const techId = attachedId(existing);
+    let calls = 0;
+    const decider: ClefDecider = {
+      async decide(input) {
+        calls += 1;
+        expect(input.questions.tech?.criteria[techId]).toContain("Cloudflare Workers");
+        expect(input.questions.tech?.criteria.new).toBe("どれとも違う新しい技術");
+        return {
+          answers: {
+            tech: {
+              type: "choice",
+              choice: techId,
+              probabilities: { [techId]: 0.9, new: 0.1 },
+              confidence: 0.9,
+            },
+          },
+        };
+      },
+    };
+    const matched = await resolveExtractedTech(env.DB, {
+      memoId: await insertMemo(),
+      name: "Workers",
+      aliases: [],
+      relation: "subject",
+      now: NOW,
+      matchNear: nearTechMatcher(decider),
+    });
+    expect(calls).toBe(1);
+    expect(attachedId(matched)).toBe(techId);
+    expect(matched.kind === "attached" && matched.created).toBe(false);
+    expect(await techCount()).toBe(1);
+    const aliases = await env.DB.prepare(
+      "SELECT alias_key FROM tech_aliases ORDER BY alias_key",
+    ).all<{ alias_key: string }>();
+    expect(aliases.results.map((row) => row.alias_key)).toEqual([
+      "cloudflareworkers",
+      "workers",
+    ]);
+  });
+
+  it("近い候補が無い呼び方は Clef を呼ばず新しい技術にする", async () => {
+    await resolveExtractedTech(env.DB, {
+      memoId: await insertMemo(),
+      name: "Cloudflare Workers",
+      aliases: [],
+      relation: "subject",
+      now: NOW,
+    });
+    let calls = 0;
+    const decider: ClefDecider = {
+      async decide() {
+        calls += 1;
+        return {
+          answers: {
+            tech: {
+              type: "choice",
+              choice: "new",
+              probabilities: { new: 1 },
+              confidence: 0.2,
+            },
+          },
+        };
+      },
+    };
+    const created = await resolveExtractedTech(env.DB, {
+      memoId: await insertMemo(),
+      name: "Hono",
+      aliases: [],
+      relation: "subject",
+      now: NOW,
+      matchNear: nearTechMatcher(decider),
+    });
+    expect(calls).toBe(0);
+    expect(created.kind === "attached" && created.created).toBe(true);
     expect(await techCount()).toBe(2);
   });
 

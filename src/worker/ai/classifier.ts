@@ -20,6 +20,7 @@ export type AcceptedClassification =
   | { kind: "unclassified" };
 
 export type Classifier = {
+  version: string;
   classify(input: ClassifierInput): Promise<ClassificationProposal>;
 };
 

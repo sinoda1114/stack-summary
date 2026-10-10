@@ -23,6 +23,7 @@ export function geminiClassifier(
   model: string,
 ): Classifier {
   return {
+    version: CLASSIFY_PROMPT_VERSION,
     async classify(input: ClassifierInput) {
       return generateValidated(
         generator,

@@ -3,6 +3,9 @@ import {
   type WorkflowEvent,
   type WorkflowStep,
 } from "cloudflare:workers";
+import { clefBinding, clefDecider } from "../ai/clef";
+import { clefClassifier } from "../ai/clef-classifier";
+import { nearTechMatcher } from "../ai/clef-name-match";
 import { geminiGeneratorFromApiKey } from "../ai/gemini";
 import { readGeminiRuntime } from "../env";
 import { executeImport, type ImportStepRunner } from "./import-run";
@@ -21,6 +24,7 @@ export class ImportWorkflow extends WorkflowEntrypoint<Env, ImportWorkflowParams
     if (runtime === null) {
       throw new Error("Gemini の設定がありません");
     }
+    const decider = clefDecider(clefBinding(this.env.AI));
     await executeImport(
       step as ImportStepRunner,
       {
@@ -29,6 +33,8 @@ export class ImportWorkflow extends WorkflowEntrypoint<Env, ImportWorkflowParams
         modelLight: runtime.modelLight,
         modelHeavy: runtime.modelHeavy,
         now: new Date().toISOString(),
+        classifier: clefClassifier(decider),
+        matchNear: nearTechMatcher(decider),
       },
       event.payload.importId,
     );

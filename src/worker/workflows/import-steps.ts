@@ -1,4 +1,4 @@
-import { CLASSIFY_PROMPT_VERSION, classifyTech } from "../ai/gemini-classifier";
+import { classifyTech } from "../ai/gemini-classifier";
 import type { Classifier } from "../ai/classifier";
 import {
   InvalidModelOutput,
@@ -25,7 +25,10 @@ import {
   upsertAiSubcategory,
 } from "../db/taxonomy";
 import { aliasKey } from "../ingest/normalize";
-import { resolveExtractedTech } from "../ingest/resolve-tech";
+import {
+  resolveExtractedTech,
+  type NearNameMatch,
+} from "../ingest/resolve-tech";
 
 export const IMPORT_STEP_RETRY = {
   retries: {
@@ -41,6 +44,8 @@ export type ImportRunner = {
   modelLight: string;
   modelHeavy: string;
   now: string;
+  classifier: Classifier;
+  matchNear?: NearNameMatch;
 };
 
 export async function markImportProcessing(
@@ -119,6 +124,8 @@ export async function applyExtractions(
         aliases: tech.aliases,
         relation: tech.relation,
         now: runner.now,
+        context: `${pair.memo.title}\n${pair.memo.body}`,
+        matchNear: runner.matchNear,
       });
       if (resolved.discarded.length > 0) {
         notes.push(`捨てた候補: ${resolved.discarded.join(", ")}`);
@@ -204,13 +211,14 @@ export async function classifyImportTechs(
       categories,
       subcategories,
     });
+    const promptVersion = classifier.version;
     switch (accepted.kind) {
       case "existing":
         await classifyTechRow(runner.db, {
           techId: item.techId,
           subcategoryId: accepted.subcategoryId,
           classifiedBy: "model",
-          promptVersion: CLASSIFY_PROMPT_VERSION,
+          promptVersion,
           now: runner.now,
         });
         break;
@@ -224,7 +232,7 @@ export async function classifyImportTechs(
           techId: item.techId,
           subcategoryId,
           classifiedBy: "model",
-          promptVersion: CLASSIFY_PROMPT_VERSION,
+          promptVersion,
           now: runner.now,
         });
         break;
@@ -234,7 +242,7 @@ export async function classifyImportTechs(
           techId: item.techId,
           subcategoryId: null,
           classifiedBy: null,
-          promptVersion: CLASSIFY_PROMPT_VERSION,
+          promptVersion,
           now: runner.now,
         });
         break;
