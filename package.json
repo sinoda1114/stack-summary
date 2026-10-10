@@ -13,8 +13,10 @@
     "node": ">=22"
   },
   "dependencies": {
+    "@google/genai": "2.28.0",
     "hono": "4.13.13",
-    "jose": "6.2.12"
+    "jose": "6.2.12",
+    "zod": "4.6.5"
   },
   "devDependencies": {
     "@cloudflare/vitest-plugin": "1.4.0",

@@ -2,6 +2,7 @@ import { cloudflareTest, readD1Migrations } from "@cloudflare/vitest-plugin";
 import { defineConfig } from "vitest/config";
 
 process.env.OWNER_EMAIL ??= "owner@example.com";
+process.env.GEMINI_API_KEY ??= "test-gemini-key";
 
 const TEAM_DOMAIN = "https://team.cloudflareaccess.com";
 const AUDIENCE = "test-aud";
@@ -19,6 +20,9 @@ export default defineConfig({
             ACCESS_AUD: AUDIENCE,
             OWNER_EMAIL,
             APP_ORIGIN: "https://stack.example.com",
+            GEMINI_API_KEY: "test-gemini-key",
+            GEMINI_MODEL: "test-model",
+            IMPORT_MAX_CHARS: "50000",
             TEST_MIGRATIONS: migrations,
           },
         },

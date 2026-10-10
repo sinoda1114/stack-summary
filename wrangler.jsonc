@@ -13,10 +13,12 @@
   "vars": {
     "ACCESS_TEAM_DOMAIN": "",
     "ACCESS_AUD": "",
-    "APP_ORIGIN": ""
+    "APP_ORIGIN": "",
+    "GEMINI_MODEL": "",
+    "IMPORT_MAX_CHARS": "50000"
   },
   "secrets": {
-    "required": ["OWNER_EMAIL"]
+    "required": ["OWNER_EMAIL", "GEMINI_API_KEY"]
   },
   // 段階 2 はローカル D1。リモートの database_id は本番配置の前に置く。
   "d1_databases": [
