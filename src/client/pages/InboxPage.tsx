@@ -115,7 +115,7 @@ export function InboxPage() {
   const firstFresh = fresh[0];
 
   return (
-    <Stack className="page" gap="lg">
+    <Stack gap="lg">
       <Title order={1}>受け箱</Title>
       {notice === null ? null : <Text className="note">{notice}</Text>}
       {mobile ? <Text>この幅では管理操作を出しません。</Text> : null}
@@ -164,48 +164,50 @@ export function InboxPage() {
           )}
         </Tabs.Panel>
         <Tabs.Panel value="fresh">
-          {fresh.length === 0 ? null : (
-            <Stack gap={0} className="record-list">
-              {fresh.map((item) => (
-                <Text key={item.id} className="record-row">
-                  {item.categoryName} / {item.name}
-                </Text>
-              ))}
-            </Stack>
-          )}
-          {mobile || firstFresh === undefined ? null : (
-            <div className="section-card">
-            <Stack>
-              <TextInput label="改名" value={rename} onChange={(event) => setRename(event.currentTarget.value)} />
-              <Button onClick={() => void confirm(firstFresh.id, { name: rename })}>改名</Button>
-              <Select
-                label="移動先の大分類"
-                data={categories.map((category) => ({ value: category.id, label: category.name }))}
-                value={categoryId}
-                onChange={setCategoryId}
-              />
-              <Button
-                onClick={() => {
-                  if (categoryId !== null) {
-                    void confirm(firstFresh.id, { categoryId });
-                  }
-                }}
-              >
-                移動
-              </Button>
-              <Select
-                label="統合先"
-                data={mergeTargets
-                  .filter((item) => item.id !== firstFresh.id)
-                  .map((item) => ({ value: item.id, label: item.name }))}
-                value={intoId}
-                onChange={setIntoId}
-              />
-              <Button onClick={() => void mergeFresh(firstFresh.id)}>統合</Button>
-              <Button onClick={() => void confirm(firstFresh.id, { reviewed: true })}>確認済み</Button>
-            </Stack>
-            </div>
-          )}
+          <Stack gap="lg">
+            {fresh.length === 0 ? null : (
+              <Stack gap={0} className="record-list">
+                {fresh.map((item) => (
+                  <Text key={item.id} className="record-row">
+                    {item.categoryName} / {item.name}
+                  </Text>
+                ))}
+              </Stack>
+            )}
+            {mobile || firstFresh === undefined ? null : (
+              <div className="section-card">
+                <Stack>
+                  <TextInput label="改名" value={rename} onChange={(event) => setRename(event.currentTarget.value)} />
+                  <Button onClick={() => void confirm(firstFresh.id, { name: rename })}>改名</Button>
+                  <Select
+                    label="移動先の大分類"
+                    data={categories.map((category) => ({ value: category.id, label: category.name }))}
+                    value={categoryId}
+                    onChange={setCategoryId}
+                  />
+                  <Button
+                    onClick={() => {
+                      if (categoryId !== null) {
+                        void confirm(firstFresh.id, { categoryId });
+                      }
+                    }}
+                  >
+                    移動
+                  </Button>
+                  <Select
+                    label="統合先"
+                    data={mergeTargets
+                      .filter((item) => item.id !== firstFresh.id)
+                      .map((item) => ({ value: item.id, label: item.name }))}
+                    value={intoId}
+                    onChange={setIntoId}
+                  />
+                  <Button onClick={() => void mergeFresh(firstFresh.id)}>統合</Button>
+                  <Button onClick={() => void confirm(firstFresh.id, { reviewed: true })}>確認済み</Button>
+                </Stack>
+              </div>
+            )}
+          </Stack>
         </Tabs.Panel>
       </Tabs>
     </Stack>

@@ -94,7 +94,7 @@ function MemoSearch() {
   }
 
   return (
-    <Stack className="page" gap="lg">
+    <Stack gap="lg">
       <Title order={1}>メモ</Title>
       {notice === null ? null : <Text className="note">{notice}</Text>}
       <TextInput label="検索" value={q} onChange={(event) => setQ(event.currentTarget.value)} />
@@ -183,7 +183,7 @@ function MemoDetailView(props: { id: string }) {
   }
 
   return (
-    <Stack className="page" gap="lg">
+    <Stack gap="lg">
       <Title order={1}>{detail.title}</Title>
       {notice === null ? null : <Text className="note">{notice}</Text>}
       <Text className="meta">{detail.memoDate ?? "日付なし"}</Text>

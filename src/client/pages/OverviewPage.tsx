@@ -71,7 +71,7 @@ export function OverviewPage() {
   ));
 
   return (
-    <Stack className="page" gap="lg">
+    <Stack gap="lg">
       <Title order={1}>全体図</Title>
       {loadError === null ? null : <Text className="note">{loadError}</Text>}
       <Group align="flex-end" gap="md">

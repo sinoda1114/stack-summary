@@ -1,19 +1,10 @@
 @import url("https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;600&family=Zen+Kaku+Gothic+New:wght@400;500&display=swap");
 
-:root {
-  --paper: #f3efe6;
-  --card: #faf7f2;
-  --ink: #1c1915;
-  --muted: #5c564c;
-  --rule: #ddd4c4;
-  --seal: #9c3b2e;
-}
-
 html,
 body,
 #root {
-  background: var(--paper);
-  color: var(--ink);
+  background: var(--mantine-color-body);
+  color: var(--mantine-color-text);
   min-height: 100%;
 }
 
@@ -34,14 +25,14 @@ body {
   gap: 24px;
   padding-bottom: 16px;
   margin-bottom: 32px;
-  border-bottom: 1px solid var(--rule);
+  border-bottom: 1px solid var(--mantine-color-default-border);
 }
 
 .wordmark {
   font-family: "Shippori Mincho", "Hiragino Mincho ProN", serif;
   font-size: 15px;
   letter-spacing: 0.14em;
-  color: var(--ink);
+  color: var(--mantine-color-text);
   text-decoration: none;
 }
 
@@ -52,47 +43,43 @@ body {
 }
 
 .nav-link {
-  color: var(--ink);
+  color: var(--mantine-color-text);
   text-decoration: none;
   font-size: 14px;
   padding-bottom: 3px;
 }
 
 .nav-link[aria-current="page"] {
-  color: var(--seal);
-  box-shadow: inset 0 -1px 0 var(--seal);
+  color: var(--mantine-color-seal-6);
+  box-shadow: inset 0 -1px 0 var(--mantine-color-seal-6);
 }
 
 .nav-link:focus-visible,
 .record-row a:focus-visible,
 .wordmark:focus-visible {
-  outline: 2px solid var(--seal);
+  outline: 2px solid var(--mantine-color-seal-6);
   outline-offset: 3px;
 }
 
-a {
-  color: var(--seal);
+.sheet :where(a):not(:where(.nav-link, .wordmark)) {
+  color: var(--mantine-color-seal-6);
   text-underline-offset: 3px;
 }
 
 .section-card {
-  background: var(--card);
-  border: 1px solid var(--rule);
+  background: var(--mantine-color-white);
+  border: 1px solid var(--mantine-color-default-border);
   padding: 20px 22px 22px;
 }
 
-.record-list + .section-card {
-  margin-top: 20px;
-}
-
 .record-list {
-  background: var(--card);
-  border: 1px solid var(--rule);
+  background: var(--mantine-color-white);
+  border: 1px solid var(--mantine-color-default-border);
 }
 
 .record-row {
   padding: 13px 16px;
-  border-bottom: 1px solid var(--rule);
+  border-bottom: 1px solid var(--mantine-color-default-border);
 }
 
 .record-row:last-child {
@@ -108,20 +95,20 @@ a {
 .subcategory + .subcategory {
   margin-top: 18px;
   padding-top: 16px;
-  border-top: 1px solid var(--rule);
+  border-top: 1px solid var(--mantine-color-default-border);
 }
 
 .meta {
-  color: var(--muted);
+  color: var(--mantine-color-ash-6);
   font-size: 14px;
 }
 
 .note {
   margin: 0;
   padding: 12px 14px;
-  background: var(--card);
-  border-left: 3px solid #b7b0a3;
-  color: var(--ink);
+  background: var(--mantine-color-white);
+  border-left: 3px solid var(--mantine-color-ash-4);
+  color: var(--mantine-color-text);
 }
 
 .memo-body {
@@ -136,7 +123,7 @@ a {
 
 .mention {
   padding-top: 14px;
-  border-top: 1px solid var(--rule);
+  border-top: 1px solid var(--mantine-color-default-border);
 }
 
 .current-name {
@@ -145,19 +132,8 @@ a {
   line-height: 1.4;
 }
 
-.status-mark {
-  display: inline-block;
-  padding: 1px 8px;
-  border: 1px solid;
-  border-radius: 2px;
-  font-size: 12px;
-  line-height: 1.7;
-  letter-spacing: 0.02em;
-  white-space: nowrap;
-}
-
 .section-kicker {
-  color: var(--muted);
+  color: var(--mantine-color-ash-6);
   font-size: 13px;
   letter-spacing: 0.08em;
 }

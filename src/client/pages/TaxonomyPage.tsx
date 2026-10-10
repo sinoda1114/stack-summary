@@ -85,7 +85,7 @@ export function TaxonomyPage() {
   }
 
   return (
-    <Stack className="page" gap="lg">
+    <Stack gap="lg">
       <Title order={1}>分類</Title>
       {notice === null ? null : <Text className="note">{notice}</Text>}
       {mobile ? <Text>この幅では管理操作を出しません。</Text> : null}
@@ -96,18 +96,18 @@ export function TaxonomyPage() {
       ))}
       {mobile ? null : (
         <div className="section-card">
-        <Stack>
-          <TextInput label="大分類を追加" value={name} onChange={(event) => setName(event.currentTarget.value)} />
-          <Button onClick={() => void addCategory()}>大分類を追加</Button>
-          <Select
-            label="小分類を置く大分類"
-            data={categories.map((category) => ({ value: category.id, label: category.name }))}
-            value={categoryId}
-            onChange={setCategoryId}
-          />
-          <TextInput label="小分類名" value={subName} onChange={(event) => setSubName(event.currentTarget.value)} />
-          <Button onClick={() => void addSubcategory()}>小分類を追加</Button>
-        </Stack>
+          <Stack>
+            <TextInput label="大分類を追加" value={name} onChange={(event) => setName(event.currentTarget.value)} />
+            <Button onClick={() => void addCategory()}>大分類を追加</Button>
+            <Select
+              label="小分類を置く大分類"
+              data={categories.map((category) => ({ value: category.id, label: category.name }))}
+              value={categoryId}
+              onChange={setCategoryId}
+            />
+            <TextInput label="小分類名" value={subName} onChange={(event) => setSubName(event.currentTarget.value)} />
+            <Button onClick={() => void addSubcategory()}>小分類を追加</Button>
+          </Stack>
         </div>
       )}
       {groups.map((group) => (

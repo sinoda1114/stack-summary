@@ -54,7 +54,7 @@ export function SubcategoryPage() {
   }
 
   return (
-    <Stack className="page" gap="lg">
+    <Stack gap="lg">
       <Title order={1}>
         {comparison.categoryName} / {comparison.name}
       </Title>

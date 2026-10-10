@@ -58,13 +58,13 @@ const ash: MantineColorsTuple = [
 
 const field = {
   input: {
-    backgroundColor: "#faf7f2",
-    borderColor: "#ddd4c4",
+    backgroundColor: "var(--mantine-color-white)",
+    borderColor: "var(--mantine-color-default-border)",
   },
   label: {
     fontWeight: 500,
     marginBottom: 6,
-    color: "#47433b",
+    color: "var(--mantine-color-ash-6)",
   },
 };
 
@@ -116,14 +116,14 @@ export const theme = createTheme({
         horizontalSpacing: "md",
       },
       styles: {
-        table: { backgroundColor: "#faf7f2" },
+        table: { backgroundColor: "var(--mantine-color-white)" },
         th: {
           fontWeight: 500,
-          color: "#5c564c",
+          color: "var(--mantine-color-ash-6)",
           fontSize: "12px",
           letterSpacing: "0.06em",
         },
-        td: { borderColor: "#ddd4c4" },
+        td: { borderColor: "var(--mantine-color-default-border)" },
       },
     },
     Tabs: {
@@ -136,8 +136,8 @@ export const theme = createTheme({
     Accordion: {
       styles: {
         item: {
-          backgroundColor: "#faf7f2",
-          borderColor: "#ddd4c4",
+          backgroundColor: "var(--mantine-color-white)",
+          borderColor: "var(--mantine-color-default-border)",
         },
         control: { padding: "14px 16px" },
       },
@@ -145,9 +145,9 @@ export const theme = createTheme({
     Kbd: {
       styles: {
         root: {
-          backgroundColor: "#faf7f2",
-          borderColor: "#ddd4c4",
-          color: "#1c1915",
+          backgroundColor: "var(--mantine-color-white)",
+          borderColor: "var(--mantine-color-default-border)",
+          color: "var(--mantine-color-text)",
         },
       },
     },
@@ -161,12 +161,8 @@ export const cssVariablesResolver: CSSVariablesResolver = (theme) => ({
   },
   light: {
     "--mantine-color-body": "#f3efe6",
-    "--mantine-color-text": "#1c1915",
+    "--mantine-color-text": theme.black,
     "--mantine-color-default-border": "#ddd4c4",
   },
-  dark: {
-    "--mantine-color-body": "#f3efe6",
-    "--mantine-color-text": "#1c1915",
-    "--mantine-color-default-border": "#ddd4c4",
-  },
+  dark: {},
 });

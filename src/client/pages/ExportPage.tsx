@@ -23,17 +23,17 @@ export function ExportPage() {
   }
 
   return (
-    <Stack className="page" gap="lg">
+    <Stack gap="lg">
       <Title order={1}>書き出し</Title>
       {notice === null ? null : <Text className="note">{notice}</Text>}
       {mobile ? (
         <Text>この幅では書き出しを出しません。</Text>
       ) : (
         <div className="section-card">
-        <Stack>
-          <Button onClick={() => void download("json")}>JSON</Button>
-          <Button onClick={() => void download("markdown")}>Markdown</Button>
-        </Stack>
+          <Stack>
+            <Button onClick={() => void download("json")}>JSON</Button>
+            <Button onClick={() => void download("markdown")}>Markdown</Button>
+          </Stack>
         </div>
       )}
     </Stack>

@@ -82,7 +82,7 @@ export function TechPage() {
   }
 
   return (
-    <Stack className="page" gap="lg">
+    <Stack gap="lg">
       <Title order={1}>{detail.name}</Title>
       {notice === null ? null : <Text className="note">{notice}</Text>}
       <Text className="meta">最終更新 {detail.updatedAt}</Text>
@@ -94,22 +94,22 @@ export function TechPage() {
         </Group>
       ) : (
         <div className="section-card">
-        <Stack>
-          <Select
-            label="状態"
-            allowDeselect={false}
-            data={Object.entries(TECH_STATUS_LABELS).map(([value, label]) => ({ value, label }))}
-            value={selectedStatus}
-            onChange={(value) => {
-              if (value !== null && isTechStatus(value)) {
-                setStatus(value);
-              }
-            }}
-          />
-          <Textarea label="理由" value={reason} onChange={(event) => setReason(event.currentTarget.value)} />
-          <Button onClick={() => void save()}>保存</Button>
-          <MergeBox sourceId={params.id} />
-        </Stack>
+          <Stack>
+            <Select
+              label="状態"
+              allowDeselect={false}
+              data={Object.entries(TECH_STATUS_LABELS).map(([value, label]) => ({ value, label }))}
+              value={selectedStatus}
+              onChange={(value) => {
+                if (value !== null && isTechStatus(value)) {
+                  setStatus(value);
+                }
+              }}
+            />
+            <Textarea label="理由" value={reason} onChange={(event) => setReason(event.currentTarget.value)} />
+            <Button onClick={() => void save()}>保存</Button>
+            <MergeBox sourceId={params.id} />
+          </Stack>
         </div>
       )}
       {detail.memos.length === 0 ? null : (
