@@ -12,7 +12,7 @@ afterEach(() => {
 describe("技術詳細", () => {
   it("状態は5値のまま保存する", async () => {
     stubBrowser();
-    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       if (init?.method === "PATCH") {
         const sent = JSON.parse(String(init.body)) as { status?: string; reason?: string };
         return Response.json({
@@ -20,6 +20,9 @@ describe("技術詳細", () => {
           data: detail(sent.status ?? "", sent.reason ?? ""),
           error: null,
         });
+      }
+      if (String(input).endsWith("/api/techs")) {
+        return Response.json({ success: true, data: [], error: null });
       }
       return Response.json({ success: true, data: detail("adopted", "速い"), error: null });
     });
