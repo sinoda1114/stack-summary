@@ -112,12 +112,7 @@ export async function applyExtractions(
   notes: string[];
 }> {
   const notes: string[] = [];
-  const replacements: Replacement[] = [];
-  const aliasKeep = new Map<
-    string,
-    { memoId: string; aliases: Map<string, { key: string; label: string }> }
-  >();
-  const heldAliases = new Map<string, Map<string, { key: string; label: string }>>();
+  const folded = new Map<string, FoldedTech>();
   const rows =
     runner.matchNear === undefined ? [] : await listAliasRows(runner.db);
   const techs: { techId: string; context: string }[] = [];
@@ -153,61 +148,36 @@ export async function applyExtractions(
         continue;
       }
       techs.push({ techId: resolved.techId, context });
-      await rememberAliases(runner.db, resolved.techId, resolved.aliases, rows);
-      const canonical =
-        resolved.created ||
-        (await canonicalTechName(runner.db, resolved.techId, tech.name));
-      if (!canonical) {
-        const bucket = heldAliases.get(resolved.techId) ?? new Map();
-        for (const label of aliasLabels(tech.name, tech.aliases)) {
-          bucket.set(label.key, label);
-        }
-        heldAliases.set(resolved.techId, bucket);
-        continue;
-      }
-      const tagIds: string[] = [];
-      for (const tag of tech.tags) {
-        if (tag.name.trim().length === 0) {
-          continue;
-        }
-        tagIds.push(
-          await upsertTag(runner.db, { name: tag.name, kind: tag.kind }),
-        );
-      }
-      const labels = aliasLabels(tech.name, tech.aliases);
-      const kept = aliasKeep.get(resolved.techId) ?? {
+      rememberAliases(resolved, rows);
+      const fold = folded.get(resolved.techId) ?? {
         memoId: pair.memo.id,
         aliases: new Map<string, { key: string; label: string }>(),
+        tagIds: [],
+        replace: false,
       };
-      for (const label of labels) {
-        kept.aliases.set(label.key, label);
+      for (const label of aliasLabels(tech.name, tech.aliases)) {
+        fold.aliases.set(label.key, label);
       }
-      aliasKeep.set(resolved.techId, kept);
-      replacements.push({
-        memoId: pair.memo.id,
-        techId: resolved.techId,
-        aliases: labels,
-        tagIds,
-      });
+      const incomingKey = aliasKey(tech.name);
+      if (resolved.created || incomingKey === resolved.nameKey) {
+        fold.replace = true;
+        fold.memoId = pair.memo.id;
+        fold.tagIds.push(...(await tagIdsFor(runner.db, tech.tags)));
+      }
+      folded.set(resolved.techId, fold);
     }
   }
-  for (const [techId, aliases] of heldAliases) {
-    const kept = aliasKeep.get(techId);
-    if (kept === undefined) {
-      continue;
-    }
-    for (const alias of aliases.values()) {
-      kept.aliases.set(alias.key, alias);
-    }
-  }
+  const replacements = [...folded.entries()]
+    .filter(([, fold]) => fold.replace)
+    .map(([techId, fold]) => ({
+      memoId: fold.memoId,
+      techId,
+      aliases: [...fold.aliases.values()],
+      tagIds: fold.tagIds,
+    }));
   await replaceModelAnnotations(
     runner.db,
-    [...aliasKeep.entries()].map(([techId, kept]) => ({
-      memoId: kept.memoId,
-      techId,
-      aliases: [...kept.aliases.values()],
-      tagIds: [],
-    })),
+    replacements.map((item) => ({ ...item, tagIds: [] })),
     "aliases",
   );
   await replaceModelAnnotations(runner.db, replacements, "tags");
@@ -311,49 +281,35 @@ export async function failImport(
   });
 }
 
-type Replacement = {
+type FoldedTech = {
   memoId: string;
-  techId: string;
-  aliases: { key: string; label: string }[];
+  aliases: Map<string, { key: string; label: string }>;
   tagIds: string[];
+  replace: boolean;
 };
 
-async function canonicalTechName(
+async function tagIdsFor(
   db: D1Database,
-  techId: string,
-  name: string,
-): Promise<boolean> {
-  const key = aliasKey(name);
-  if (key === null) {
-    return false;
+  tags: readonly { name: string; kind: "topic" | "vendor" | "project" }[],
+): Promise<string[]> {
+  const tagIds: string[] = [];
+  for (const tag of tags) {
+    if (tag.name.trim().length === 0) {
+      continue;
+    }
+    tagIds.push(await upsertTag(db, { name: tag.name, kind: tag.kind }));
   }
-  const row = await db
-    .prepare("SELECT name_key FROM techs WHERE id = ?")
-    .bind(techId)
-    .first<{ name_key: string }>();
-  return row !== null && row.name_key === key;
+  return tagIds;
 }
 
-async function rememberAliases(
-  db: D1Database,
-  techId: string,
-  aliases: readonly { key: string; label: string }[],
+function rememberAliases(
+  resolved: { techId: string; name: string; aliases: readonly { key: string; label: string }[] },
   rows: { id: string; name: string; alias: string; aliasKey: string }[],
-): Promise<void> {
-  if (aliases.length === 0) {
-    return;
-  }
-  const tech = await db
-    .prepare("SELECT name FROM techs WHERE id = ?")
-    .bind(techId)
-    .first<{ name: string }>();
-  if (tech === null) {
-    return;
-  }
-  for (const alias of aliases) {
+): void {
+  for (const alias of resolved.aliases) {
     rows.push({
-      id: techId,
-      name: tech.name,
+      id: resolved.techId,
+      name: resolved.name,
       alias: alias.label,
       aliasKey: alias.key,
     });

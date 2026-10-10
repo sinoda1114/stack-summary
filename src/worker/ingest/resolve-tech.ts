@@ -20,6 +20,8 @@ export type ResolveExtractedTechResult =
       relation: TechRelation;
       created: boolean;
       near: boolean;
+      name: string;
+      nameKey: string;
       discarded: readonly string[];
       aliases: readonly AliasEntry[];
     }
@@ -277,9 +279,18 @@ async function commitAttachment(
     }
     return null;
   }
+  const named = await db
+    .prepare("SELECT name, name_key FROM techs WHERE id = ?")
+    .bind(techId)
+    .first<{ name: string; name_key: string }>();
+  if (named === null) {
+    return null;
+  }
   return {
     kind: "attached",
     techId,
+    name: named.name,
+    nameKey: named.name_key,
     relation: await storedRelation(db, input.memoId, techId),
     created: input.plan.kind === "create",
     near: false,
