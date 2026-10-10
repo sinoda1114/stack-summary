@@ -61,6 +61,8 @@ export class VerifyDiscordWorkflow extends WorkflowEntrypoint<Env, Record<string
           return { ok: false as const };
         }
       });
+      // 同じ呼び出しにステップがまとまると、無料プランの subrequest 上限で落ちる。
+      await step.sleep("1 second");
     }
     const applyJobs = await step.do("list-applies", STEP, async () => {
       const listed = await this.env.DB.prepare(
@@ -85,6 +87,7 @@ export class VerifyDiscordWorkflow extends WorkflowEntrypoint<Env, Record<string
           return { ok: false as const };
         }
       });
+      await step.sleep("1 second");
     }
     const techIds = await step.do("list-techs", STEP, async () => {
       const listed = await this.env.DB.prepare(
@@ -116,6 +119,7 @@ export class VerifyDiscordWorkflow extends WorkflowEntrypoint<Env, Record<string
         }
       });
       clefStopped = result.stop;
+      await step.sleep("1 second");
     }
     const sampleIds = await step.do("list-sample", STEP, async () => {
       const listed = await this.env.DB.prepare(
@@ -141,6 +145,7 @@ export class VerifyDiscordWorkflow extends WorkflowEntrypoint<Env, Record<string
         }
       });
       sampleStopped = result.stop;
+      await step.sleep("1 second");
     }
     await step.do("finish", STEP, async () => {
       await markDone(this.env.DB);
@@ -239,7 +244,6 @@ async function lightExtract(
     throw new Error("Gemini の設定がありません");
   }
   const generator = geminiGeneratorFromApiKey(env.GEMINI_API_KEY);
-  await pauseBeforeModel();
   const extracted = await generateOnce(generator, {
     model: runtime.modelLight,
     system: extractSystemPrompt,
@@ -275,7 +279,6 @@ async function classifyOne(env: Env, techId: string): Promise<boolean> {
     return false;
   }
   const context = await techContext(env.DB, tech.id, tech.name);
-  await pauseBeforeModel();
   const classifier = clefClassifier(clefDecider(clefBinding(env.AI)));
   try {
     const accepted = await classifyTech(classifier, {
@@ -354,7 +357,6 @@ async function compareOne(env: Env, techId: string): Promise<boolean> {
       : `${tech.category_name}/${tech.subcategory_name}`;
   let geminiPlace = "比較できず";
   try {
-    await pauseBeforeModel();
     const parsed = await generateOnce(
       geminiGeneratorFromApiKey(env.GEMINI_API_KEY),
       {
@@ -544,12 +546,6 @@ function parseStoredExtract(payload: string): ExtractTechOutput {
   } catch {
     return EMPTY_EXTRACT;
   }
-}
-
-function pauseBeforeModel(): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, 1000);
-  });
 }
 
 export function publicModelError(error: unknown): string {
