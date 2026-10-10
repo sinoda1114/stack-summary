@@ -345,6 +345,110 @@ describe("別名の照合と新機能の解決", () => {
       .bind(techId)
       .all<{ tag_id: string }>();
     expect(tags.results.map((row) => row.tag_id)).toEqual(["tag-edge"]);
+    await applyExtractions(annotationRunner(techId), [
+      {
+        memo: {
+          id: memoId,
+          title: "Workers",
+          body: "Workers を見た",
+          urls: [],
+        },
+        extracted: {
+          techs: [
+            {
+              name: "Workers",
+              aliases: [],
+              relation: "subject",
+              tags: [],
+            },
+          ],
+        },
+      },
+    ]);
+    const afterRetry = await env.DB.prepare(
+      "SELECT alias_key FROM tech_aliases WHERE tech_id = ? ORDER BY alias_key",
+    )
+      .bind(techId)
+      .all<{ alias_key: string }>();
+    expect(afterRetry.results.map((row) => row.alias_key)).toEqual([
+      "cfworkers",
+      "cloudflareworkers",
+      "workers",
+    ]);
+  });
+
+  it("同じ取り込みで作った正式名に、続く短い呼び方を近い一致で足す", async () => {
+    const firstMemo = await insertMemo("Cloudflare Workers");
+    const secondMemo = await insertMemo("Workers");
+    const decider: ClefDecider = {
+      async decide(input) {
+        const picked = Object.keys(input.questions.tech?.criteria ?? {}).find(
+          (id) => id !== "new",
+        );
+        return {
+          answers: {
+            tech: {
+              type: "choice",
+              choice: picked ?? "new",
+              probabilities: { [picked ?? "new"]: 1 },
+              confidence: 0.8,
+            },
+          },
+        };
+      },
+    };
+    await applyExtractions(
+      {
+        ...annotationRunner("unused"),
+        matchNear: nearTechMatcher(decider),
+      },
+      [
+        {
+          memo: {
+            id: firstMemo,
+            title: "正式名",
+            body: "Cloudflare Workers",
+            urls: [],
+          },
+          extracted: {
+            techs: [
+              {
+                name: "Cloudflare Workers",
+                aliases: [],
+                relation: "subject",
+                tags: [],
+              },
+            ],
+          },
+        },
+        {
+          memo: {
+            id: secondMemo,
+            title: "短い呼び方",
+            body: "Workers",
+            urls: [],
+          },
+          extracted: {
+            techs: [
+              {
+                name: "Workers",
+                aliases: [],
+                relation: "subject",
+                tags: [],
+              },
+            ],
+          },
+        },
+      ],
+    );
+    expect(await techCount()).toBe(1);
+    const aliases = await env.DB.prepare(
+      "SELECT alias_key FROM tech_aliases ORDER BY alias_key",
+    ).all<{ alias_key: string }>();
+    expect(aliases.results.map((row) => row.alias_key)).toEqual([
+      "cloudflareworkers",
+      "workers",
+    ]);
   });
 
   it("別名キーが当たった呼び方は既存の技術に結ぶ", async () => {

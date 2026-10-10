@@ -53,39 +53,32 @@ describe("Clef の分類", () => {
     if (request === null) {
       throw new Error("分類の質問がありません");
     }
-    expect(Object.keys(request.questions.category?.criteria ?? {}).sort()).toEqual([
-      "backend",
-      "frontend",
-      UNCLASSIFIED_CHOICE,
-    ]);
+    expect(request.questions.category).toBeUndefined();
     expect(Object.keys(request.questions.subcategory?.criteria ?? {}).sort()).toEqual([
       "sub-hono",
       "sub-react",
       UNCLASSIFIED_CHOICE,
     ]);
-    expect(request.questions.category?.instructions).toContain("新しい分類名は作らない");
+    expect(request.questions.subcategory?.instructions).toContain("新しい分類名は作らない");
     expect(request.questions.subcategory?.criteria["sub-hono"]).toContain(
       "バックエンド / Web フレームワーク",
     );
   });
 
-  it("大分類と小分類が一致すれば既存、違えば未分類で、確信度では拒まない", () => {
+  it("選んだ小分類を1つ返し、未分類と候補外は未分類で、確信度では拒まない", () => {
     expect(
       proposalFromChoices(input, {
-        category: choice("backend", 0.01),
         subcategory: choice("sub-hono", 0.01),
       }),
     ).toEqual({ kind: "existing", subcategoryId: "sub-hono", confidence: 0.01 });
     expect(
       proposalFromChoices(input, {
-        category: choice("frontend", 0.9),
-        subcategory: choice("sub-hono", 0.9),
+        subcategory: choice(UNCLASSIFIED_CHOICE, 0.4),
       }).kind,
     ).toBe("unclassified");
     expect(
       proposalFromChoices(input, {
-        category: choice(UNCLASSIFIED_CHOICE, 0.4),
-        subcategory: choice("sub-hono", 0.4),
+        subcategory: choice("missing", 0.9),
       }).kind,
     ).toBe("unclassified");
   });
@@ -115,12 +108,6 @@ describe("Clef の分類", () => {
         return {
           model: "clef-flash",
           answers: {
-            category: {
-              type: "choice",
-              choice: "backend",
-              probabilities: { backend: 0.7, unclassified: 0.3 },
-              confidence: 0.7,
-            },
             subcategory: {
               type: "choice",
               choice: "sub-hono",

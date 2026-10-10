@@ -57,7 +57,7 @@ describe("取り込み", () => {
     ]);
     await executeImport(
       step,
-      runner(script.generator, clefClassifier(choiceDecider("backend", "sub-hono"))),
+      runner(script.generator, clefClassifier(choiceDecider("sub-hono"))),
       importId,
     );
 
@@ -421,17 +421,11 @@ function unclassifiedClassifier(): Classifier {
   };
 }
 
-function choiceDecider(category: string, subcategory: string): ClefDecider {
+function choiceDecider(subcategory: string): ClefDecider {
   return {
     async decide() {
       return {
         answers: {
-          category: {
-            type: "choice",
-            choice: category,
-            probabilities: { [category]: 1 },
-            confidence: 0.8,
-          },
           subcategory: {
             type: "choice",
             choice: subcategory,

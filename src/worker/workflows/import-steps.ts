@@ -117,6 +117,7 @@ export async function applyExtractions(
     string,
     { memoId: string; aliases: Map<string, { key: string; label: string }> }
   >();
+  const heldAliases = new Map<string, Map<string, { key: string; label: string }>>();
   const rows =
     runner.matchNear === undefined ? [] : await listAliasRows(runner.db);
   const techs: { techId: string; context: string }[] = [];
@@ -152,7 +153,16 @@ export async function applyExtractions(
         continue;
       }
       techs.push({ techId: resolved.techId, context });
-      if (resolved.near) {
+      await rememberAliases(runner.db, resolved.techId, resolved.aliases, rows);
+      const canonical =
+        resolved.created ||
+        (await canonicalTechName(runner.db, resolved.techId, tech.name));
+      if (!canonical) {
+        const bucket = heldAliases.get(resolved.techId) ?? new Map();
+        for (const label of aliasLabels(tech.name, tech.aliases)) {
+          bucket.set(label.key, label);
+        }
+        heldAliases.set(resolved.techId, bucket);
         continue;
       }
       const tagIds: string[] = [];
@@ -179,6 +189,15 @@ export async function applyExtractions(
         aliases: labels,
         tagIds,
       });
+    }
+  }
+  for (const [techId, aliases] of heldAliases) {
+    const kept = aliasKeep.get(techId);
+    if (kept === undefined) {
+      continue;
+    }
+    for (const alias of aliases.values()) {
+      kept.aliases.set(alias.key, alias);
     }
   }
   await replaceModelAnnotations(
@@ -298,6 +317,48 @@ type Replacement = {
   aliases: { key: string; label: string }[];
   tagIds: string[];
 };
+
+async function canonicalTechName(
+  db: D1Database,
+  techId: string,
+  name: string,
+): Promise<boolean> {
+  const key = aliasKey(name);
+  if (key === null) {
+    return false;
+  }
+  const row = await db
+    .prepare("SELECT name_key FROM techs WHERE id = ?")
+    .bind(techId)
+    .first<{ name_key: string }>();
+  return row !== null && row.name_key === key;
+}
+
+async function rememberAliases(
+  db: D1Database,
+  techId: string,
+  aliases: readonly { key: string; label: string }[],
+  rows: { id: string; name: string; alias: string; aliasKey: string }[],
+): Promise<void> {
+  if (aliases.length === 0) {
+    return;
+  }
+  const tech = await db
+    .prepare("SELECT name FROM techs WHERE id = ?")
+    .bind(techId)
+    .first<{ name: string }>();
+  if (tech === null) {
+    return;
+  }
+  for (const alias of aliases) {
+    rows.push({
+      id: techId,
+      name: tech.name,
+      alias: alias.label,
+      aliasKey: alias.key,
+    });
+  }
+}
 
 function aliasLabels(
   name: string,

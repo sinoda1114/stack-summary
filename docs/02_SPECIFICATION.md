@@ -353,7 +353,7 @@ VALUES (?, ?, ?, ?, 'ai', 0, ?)
 ON CONFLICT (category_id, name) DO NOTHING;
 ```
 
-- 取り込みの分類は `clefClassifier`（`@cf/cloudflare/clef-flash`）である。`geminiClassifier` は同じ `Classifier` の差し替え口として残す（FR-29）。Clef は `kind: "new"` を返さない。記録する版は `clef-flash.v1` である。
+- 取り込みの分類は `clefClassifier`（`@cf/cloudflare/clef-flash`）である。質問は小分類 1 つで、大分類はその小分類の親である。戻りは小分類 ID 1 つで、配列にはしない。`geminiClassifier` は同じ `Classifier` の差し替え口として残す（FR-29）。Clef は `kind: "new"` を返さない。記録する版は `clef-flash.v1` である。
 - 選択のルール: 大分類は渡した一覧からしか選ばない（FR-22）。同じ小分類の技術同士が「どちらにするか」と比べられる関係になるよう選ぶ。どれも違えば未分類にし、新しい小分類は作らない。「その他」のような寄せ集めは選ばない（FR-24）。
 - 確信度の数値だけでは未分類にしない。分布を見るまでは、取り込みの拒否条件にもしない（03 §4 段階 5）。
 - 新規行の出所は `model`。`prompt_version` を記録する（NFR-08）。`classified_by = 'user'` の技術は、このステップで小分類を変えない。
