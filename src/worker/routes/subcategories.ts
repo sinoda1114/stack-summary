@@ -1,19 +1,16 @@
 import type { Hono } from "hono";
 import {
   createUserSubcategory,
-  listUnreviewedSubcategories,
+  listSubcategoryChoices,
   mergeSubcategory,
   patchSubcategory,
-} from "../db/taxonomy-admin";
+} from "../db/subcategory-admin";
 import { loadSubcategoryComparison } from "../db/tech-detail";
 import { fail, isRecord, ok } from "../http";
 
 export function registerSubcategoryRoutes(app: Hono<{ Bindings: Env }>): void {
   app.get("/api/subcategories", async (c) => {
-    if (c.req.query("reviewed") !== "0") {
-      return c.json(fail("invalid", "確認一覧の指定が不正です"), 400);
-    }
-    return c.json(ok(await listUnreviewedSubcategories(c.env.DB)));
+    return c.json(ok(await listSubcategoryChoices(c.env.DB)));
   });
 
   app.post("/api/subcategories", async (c) => {

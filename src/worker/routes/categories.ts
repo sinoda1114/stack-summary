@@ -1,5 +1,5 @@
 import type { Hono } from "hono";
-import { createCategory, listCategoryItems, patchCategory } from "../db/taxonomy-admin";
+import { createCategory, listCategoryItems, patchCategory } from "../db/category-admin";
 import { fail, isRecord, ok } from "../http";
 
 export function registerCategoryRoutes(app: Hono<{ Bindings: Env }>): void {

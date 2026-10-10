@@ -2,8 +2,7 @@ import type { Hono } from "hono";
 import type { TechStatus } from "../../shared/labels";
 import { addUserAlias, deleteUserAlias } from "../db/aliases";
 import { mergeTech } from "../db/merge-tech";
-import { listInboxTechs } from "../db/taxonomy-admin";
-import { isTechStatus, loadTechDetail, patchTech } from "../db/tech-detail";
+import { isTechStatus, listTechSummaries, loadTechDetail, patchTech } from "../db/tech-detail";
 import { fail, isRecord, ok } from "../http";
 
 type TechPatch = {
@@ -17,15 +16,7 @@ const TAG_KINDS = ["topic", "vendor", "project"] as const;
 
 export function registerTechRoutes(app: Hono<{ Bindings: Env }>): void {
   app.get("/api/techs", async (c) => {
-    const status = c.req.query("status");
-    const unclassified = c.req.query("unclassified");
-    if (status === "unrated" && unclassified === undefined) {
-      return c.json(ok(await listInboxTechs(c.env.DB, "unrated")));
-    }
-    if (unclassified === "1" && status === undefined) {
-      return c.json(ok(await listInboxTechs(c.env.DB, "unclassified")));
-    }
-    return c.json(fail("invalid", "受け箱の指定が不正です"), 400);
+    return c.json(ok(await listTechSummaries(c.env.DB)));
   });
 
   app.get("/api/techs/:id", async (c) => {

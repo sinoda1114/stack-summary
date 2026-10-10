@@ -24,7 +24,9 @@ export function InboxPage() {
   const [unrated, setUnrated] = useState<InboxTech[]>([]);
   const [unclassified, setUnclassified] = useState<InboxTech[]>([]);
   const [fresh, setFresh] = useState<Unreviewed[]>([]);
+  const [mergeTargets, setMergeTargets] = useState<Unreviewed[]>([]);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
+  const [notice, setNotice] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>("adopted");
   const [rename, setRename] = useState("");
   const [categoryId, setCategoryId] = useState<string | null>(null);
@@ -35,17 +37,37 @@ export function InboxPage() {
   }, []);
 
   async function reload(): Promise<void> {
-    const [rated, open, review, categoryBody] = await Promise.all([
-      readJson<InboxTech[]>("/api/techs?status=unrated"),
-      readJson<InboxTech[]>("/api/techs?unclassified=1"),
-      readJson<Unreviewed[]>("/api/subcategories?reviewed=0"),
+    const [rated, open, review, targets, categoryBody] = await Promise.all([
+      readJson<InboxTech[]>("/api/inbox/unrated"),
+      readJson<InboxTech[]>("/api/inbox/unclassified"),
+      readJson<Unreviewed[]>("/api/inbox/subcategories"),
+      readJson<Unreviewed[]>("/api/subcategories"),
       readJson<CategoryItem[]>("/api/categories"),
     ]);
-    setUnrated(rated ?? []);
-    setUnclassified(open ?? []);
-    setFresh(review ?? []);
-    setCategories(categoryBody ?? []);
-    const first = review?.[0];
+    const failure =
+      rated.message ??
+      open.message ??
+      review.message ??
+      targets.message ??
+      categoryBody.message;
+    if (
+      failure !== null ||
+      rated.data === null ||
+      open.data === null ||
+      review.data === null ||
+      targets.data === null ||
+      categoryBody.data === null
+    ) {
+      setNotice(failure ?? "受け箱を取得できませんでした");
+      return;
+    }
+    setNotice(null);
+    setUnrated(rated.data);
+    setUnclassified(open.data);
+    setFresh(review.data);
+    setMergeTargets(targets.data);
+    setCategories(categoryBody.data);
+    const first = review.data[0];
     if (first !== undefined) {
       setRename(first.name);
       setCategoryId(first.categoryId);
@@ -92,6 +114,7 @@ export function InboxPage() {
   return (
     <Stack p="md">
       <Title order={1}>受け箱</Title>
+      {notice === null ? null : <Text>{notice}</Text>}
       {mobile ? <Text>この幅では管理操作を出しません。</Text> : null}
       <Tabs defaultValue="unrated">
         <Tabs.List>
@@ -160,7 +183,7 @@ export function InboxPage() {
               </Button>
               <Select
                 label="統合先"
-                data={fresh
+                data={mergeTargets
                   .filter((item) => item.id !== firstFresh.id)
                   .map((item) => ({ value: item.id, label: item.name }))}
                 value={intoId}
@@ -176,8 +199,29 @@ export function InboxPage() {
   );
 }
 
-async function readJson<T>(path: string): Promise<T | null> {
-  const response = await fetch(path);
-  const body = (await response.json()) as { success: boolean; data: T | null };
-  return body.success ? body.data : null;
+async function readJson<T>(
+  path: string,
+): Promise<{ data: T | null; message: string | null }> {
+  let response: Response;
+  try {
+    response = await fetch(path);
+  } catch {
+    return { data: null, message: "通信に失敗しました" };
+  }
+  try {
+    const body = (await response.json()) as {
+      success: boolean;
+      data: T | null;
+      error?: { message: string } | null;
+    };
+    if (!body.success || body.data === null) {
+      return {
+        data: null,
+        message: body.error?.message ?? "受け箱を取得できませんでした",
+      };
+    }
+    return { data: body.data, message: null };
+  } catch {
+    return { data: null, message: "応答を読めませんでした" };
+  }
 }

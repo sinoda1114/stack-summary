@@ -120,32 +120,28 @@ export function TechPage() {
   );
 }
 
-type OverviewTechList = {
-  subcategories: { techs: { id: string; name: string }[] }[];
-}[];
-
 function MergeBox(props: { sourceId: string | undefined }) {
   const [intoId, setIntoId] = useState<string | null>(null);
   const [options, setOptions] = useState<{ value: string; label: string }[]>([]);
   const [needsChoice, setNeedsChoice] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     let current = true;
-    void requestJson<OverviewTechList>("/api/overview").then((result) => {
-      if (!current || !result.success || result.data === null) {
+    void requestJson<{ id: string; name: string }[]>("/api/techs").then((result) => {
+      if (!current) {
         return;
       }
-      const next: { value: string; label: string }[] = [];
-      for (const category of result.data) {
-        for (const subcategory of category.subcategories) {
-          for (const tech of subcategory.techs) {
-            if (tech.id !== props.sourceId) {
-              next.push({ value: tech.id, label: tech.name });
-            }
-          }
-        }
+      if (!result.success || result.data === null) {
+        setNotice(result.error?.message ?? "技術一覧を取得できませんでした");
+        return;
       }
-      setOptions(next);
+      setNotice(null);
+      setOptions(
+        result.data
+          .filter((tech) => tech.id !== props.sourceId)
+          .map((tech) => ({ value: tech.id, label: tech.name })),
+      );
     });
     return () => {
       current = false;
@@ -156,16 +152,29 @@ function MergeBox(props: { sourceId: string | undefined }) {
     if (props.sourceId === undefined || intoId === null) {
       return;
     }
-    const response = await fetch(`/api/techs/${props.sourceId}/merge`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ intoId, reasonChoice }),
-    });
+    let response: Response;
+    try {
+      response = await fetch(`/api/techs/${props.sourceId}/merge`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ intoId, reasonChoice }),
+      });
+    } catch {
+      setNotice("通信に失敗しました");
+      return;
+    }
     setNeedsChoice(response.status === 409);
+    if (response.ok) {
+      setNotice(null);
+      return;
+    }
+    const body = (await response.json()) as { error?: { message: string } | null };
+    setNotice(body.error?.message ?? "統合できませんでした");
   }
 
   return (
     <Stack>
+      {notice === null ? null : <Text>{notice}</Text>}
       <Select label="統合先" data={options} value={intoId} onChange={setIntoId} />
       <Button onClick={() => void merge()}>統合</Button>
       {needsChoice ? (

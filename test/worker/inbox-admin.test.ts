@@ -1,16 +1,18 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 import { addUserAlias, deleteUserAlias } from "../../src/worker/db/aliases";
+import { createCategory, patchCategory } from "../../src/worker/db/category-admin";
+import {
+  listUnclassifiedTechs,
+  listUnratedTechs,
+  listUnreviewedSubcategories,
+} from "../../src/worker/db/inbox";
 import { mergeTech } from "../../src/worker/db/merge-tech";
 import {
-  createCategory,
   createUserSubcategory,
-  listInboxTechs,
-  listUnreviewedSubcategories,
   mergeSubcategory,
-  patchCategory,
   patchSubcategory,
-} from "../../src/worker/db/taxonomy-admin";
+} from "../../src/worker/db/subcategory-admin";
 import { aliasKey } from "../../src/worker/ingest/normalize";
 
 const NOW = "2026-10-10T00:00:00.000Z";
@@ -118,7 +120,7 @@ describe("受け箱と分類の管理", () => {
     expect(aliases.results).toEqual([
       { alias_key: "hono", source: "user", tech_id: intoId },
       { alias_key: "honoold", source: "model", tech_id: intoId },
-      { alias_key: "honox", source: "model", tech_id: intoId },
+      { alias_key: "honox", source: "user", tech_id: intoId },
     ]);
     const relations = await env.DB.prepare(
       "SELECT memo_id, relation FROM memo_techs WHERE tech_id = ? ORDER BY relation",
@@ -144,8 +146,8 @@ describe("受け箱と分類の管理", () => {
     await insertSubcategory("sub-fresh", "backend", "新しい", "ai", 0);
     await insertSubcategory("sub-seen", "backend", "見た", "ai", 1);
 
-    expect((await listInboxTechs(env.DB, "unrated")).map((tech) => tech.id)).toEqual([rated]);
-    expect((await listInboxTechs(env.DB, "unclassified")).map((tech) => tech.id)).toEqual([open]);
+    expect((await listUnratedTechs(env.DB)).map((tech) => tech.id)).toEqual([rated]);
+    expect((await listUnclassifiedTechs(env.DB)).map((tech) => tech.id)).toEqual([open]);
     expect(await listUnreviewedSubcategories(env.DB)).toEqual([
       {
         id: "sub-fresh",

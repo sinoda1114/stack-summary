@@ -83,7 +83,10 @@ export async function mergeTech(
         .prepare(
           `INSERT INTO tech_aliases (alias_key, alias, tech_id, source)
            VALUES (?, ?, ?, 'user')
-           ON CONFLICT(alias_key) DO NOTHING`,
+           ON CONFLICT(alias_key) DO UPDATE SET
+             tech_id = excluded.tech_id,
+             alias = excluded.alias,
+             source = 'user'`,
         )
         .bind(nameKey, source.name, into.id),
     );
