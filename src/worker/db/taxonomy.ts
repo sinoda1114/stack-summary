@@ -28,9 +28,11 @@ export async function listSubcategories(
   for (const row of listed.results) {
     const examples = await db
       .prepare(
-        `SELECT name FROM techs
-         WHERE subcategory_id = ?
-         ORDER BY name
+        `SELECT t.name
+         FROM tech_subcategories ts
+         JOIN techs t ON t.id = ts.tech_id
+         WHERE ts.subcategory_id = ?
+         ORDER BY t.name
          LIMIT 5`,
       )
       .bind(row.id)
@@ -83,28 +85,89 @@ export async function classifyTechRow(
   db: D1Database,
   input: {
     techId: string;
-    subcategoryId: string | null;
+    categoryId: string | null;
+    subcategoryIds: readonly string[];
     classifiedBy: "model" | null;
     promptVersion: string;
     now: string;
   },
 ): Promise<void> {
-  await db
+  const current = await db
+    .prepare("SELECT classified_by FROM techs WHERE id = ?")
+    .bind(input.techId)
+    .first<{ classified_by: string | null }>();
+  if (current === null || current.classified_by === "user") {
+    return;
+  }
+  const subcategoryIds = await subcategoryIdsInCategory(
+    db,
+    input.categoryId,
+    input.subcategoryIds,
+  );
+  const statements: D1PreparedStatement[] = [
+    db
+      .prepare(
+        `UPDATE techs
+         SET category_id = ?,
+             classified_by = ?,
+             prompt_version = ?,
+             updated_at = ?
+         WHERE id = ?
+           AND (classified_by IS NULL OR classified_by <> 'user')`,
+      )
+      .bind(
+        input.categoryId,
+        input.classifiedBy,
+        input.promptVersion,
+        input.now,
+        input.techId,
+      ),
+    db
+      .prepare(
+        `DELETE FROM tech_subcategories
+         WHERE tech_id = ?
+           AND EXISTS (
+             SELECT 1 FROM techs
+             WHERE id = ?
+               AND (classified_by IS NULL OR classified_by <> 'user')
+           )`,
+      )
+      .bind(input.techId, input.techId),
+  ];
+  for (const subcategoryId of subcategoryIds) {
+    statements.push(
+      db
+        .prepare(
+          `INSERT INTO tech_subcategories (tech_id, subcategory_id)
+           SELECT ?, ?
+           WHERE EXISTS (
+             SELECT 1 FROM techs
+             WHERE id = ?
+               AND (classified_by IS NULL OR classified_by <> 'user')
+           )`,
+        )
+        .bind(input.techId, subcategoryId, input.techId),
+    );
+  }
+  await db.batch(statements);
+}
+
+async function subcategoryIdsInCategory(
+  db: D1Database,
+  categoryId: string | null,
+  subcategoryIds: readonly string[],
+): Promise<string[]> {
+  if (categoryId === null || subcategoryIds.length === 0) {
+    return [];
+  }
+  const marks = subcategoryIds.map(() => "?").join(", ");
+  const found = await db
     .prepare(
-      `UPDATE techs
-       SET subcategory_id = ?,
-           classified_by = ?,
-           prompt_version = ?,
-           updated_at = ?
-       WHERE id = ?
-         AND (classified_by IS NULL OR classified_by <> 'user')`,
+      `SELECT id FROM subcategories
+       WHERE category_id = ? AND id IN (${marks})`,
     )
-    .bind(
-      input.subcategoryId,
-      input.classifiedBy,
-      input.promptVersion,
-      input.now,
-      input.techId,
-    )
-    .run();
+    .bind(categoryId, ...subcategoryIds)
+    .all<{ id: string }>();
+  const allowed = new Set(found.results.map((row) => row.id));
+  return subcategoryIds.filter((id) => allowed.has(id));
 }

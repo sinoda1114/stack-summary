@@ -68,7 +68,7 @@ export async function createUserSubcategory(
 export async function patchSubcategory(
   db: D1Database,
   id: string,
-  patch: { name?: string; categoryId?: string; reviewed?: boolean },
+  patch: { name?: string; categoryId?: string; reviewed?: boolean; now?: string },
 ): Promise<{ ok: true } | { ok: false; code: "not_found" | "invalid" | "name_taken" }> {
   const current = await db
     .prepare("SELECT id, category_id, name FROM subcategories WHERE id = ?")
@@ -92,20 +92,36 @@ export async function patchSubcategory(
     }
   }
   const reviewed = patch.reviewed === true ? 1 : null;
-  try {
-    if (reviewed === null) {
-      await db
-        .prepare("UPDATE subcategories SET name = ?, category_id = ? WHERE id = ?")
-        .bind(name, categoryId, id)
-        .run();
-    } else {
-      await db
-        .prepare(
-          "UPDATE subcategories SET name = ?, category_id = ?, reviewed = 1 WHERE id = ?",
-        )
-        .bind(name, categoryId, id)
-        .run();
+  const statements: D1PreparedStatement[] = [
+    reviewed === null
+      ? db
+          .prepare("UPDATE subcategories SET name = ?, category_id = ? WHERE id = ?")
+          .bind(name, categoryId, id)
+      : db
+          .prepare(
+            "UPDATE subcategories SET name = ?, category_id = ?, reviewed = 1 WHERE id = ?",
+          )
+          .bind(name, categoryId, id),
+  ];
+  if (categoryId !== current.category_id) {
+    if (patch.now === undefined) {
+      throw new Error("移動の時刻がありません");
     }
+    statements.push(
+      db
+        .prepare(
+          `UPDATE techs
+           SET category_id = ?, classified_by = 'user', updated_at = ?
+           WHERE id IN (
+             SELECT tech_id FROM tech_subcategories WHERE subcategory_id = ?
+           )`,
+        )
+        .bind(categoryId, patch.now, id),
+      foreignSubcategoryLinks(db, id, categoryId),
+    );
+  }
+  try {
+    await db.batch(statements);
   } catch (error) {
     if (isUnique(error)) {
       return { ok: false, code: "name_taken" };
@@ -123,13 +139,13 @@ export async function mergeSubcategory(
     return { ok: false, code: "self_merge" };
   }
   const into = await db
-    .prepare("SELECT id FROM subcategories WHERE id = ?")
+    .prepare("SELECT id, category_id FROM subcategories WHERE id = ?")
     .bind(input.intoId)
-    .first();
+    .first<{ id: string; category_id: string }>();
   const source = await db
     .prepare("SELECT id FROM subcategories WHERE id = ?")
     .bind(input.sourceId)
-    .first();
+    .first<{ id: string }>();
   if (into === null || source === null) {
     return { ok: false, code: "not_found" };
   }
@@ -137,13 +153,49 @@ export async function mergeSubcategory(
     db
       .prepare(
         `UPDATE techs
-         SET subcategory_id = ?, classified_by = 'user', updated_at = ?
-         WHERE subcategory_id = ?`,
+         SET category_id = ?, classified_by = 'user', updated_at = ?
+         WHERE id IN (
+           SELECT tech_id FROM tech_subcategories WHERE subcategory_id = ?
+         )`,
       )
-      .bind(input.intoId, input.now, input.sourceId),
+      .bind(into.category_id, input.now, input.sourceId),
+    foreignSubcategoryLinks(db, input.sourceId, into.category_id),
+    db
+      .prepare(
+        `DELETE FROM tech_subcategories
+         WHERE subcategory_id = ?1
+           AND tech_id IN (
+             SELECT tech_id FROM tech_subcategories WHERE subcategory_id = ?2
+           )`,
+      )
+      .bind(input.sourceId, input.intoId),
+    db
+      .prepare(
+        "UPDATE tech_subcategories SET subcategory_id = ? WHERE subcategory_id = ?",
+      )
+      .bind(input.intoId, input.sourceId),
     db.prepare("DELETE FROM subcategories WHERE id = ?").bind(input.sourceId),
   ]);
   return { ok: true };
+}
+
+function foreignSubcategoryLinks(
+  db: D1Database,
+  subcategoryId: string,
+  categoryId: string,
+): D1PreparedStatement {
+  return db
+    .prepare(
+      `DELETE FROM tech_subcategories
+       WHERE tech_id IN (
+         SELECT tech_id FROM tech_subcategories WHERE subcategory_id = ?1
+       )
+         AND subcategory_id IN (
+           SELECT id FROM subcategories
+           WHERE category_id <> ?2 AND id <> ?1
+         )`,
+    )
+    .bind(subcategoryId, categoryId);
 }
 
 function isUnique(error: unknown): boolean {

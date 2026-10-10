@@ -67,17 +67,21 @@ describe("Clef の分類", () => {
       proposalFromChoices(input, {
         subcategory: choice("sub-hono", 0.01),
       }),
-    ).toEqual({ kind: "existing", subcategoryId: "sub-hono", confidence: 0.01 });
+    ).toEqual({
+      categoryId: "backend",
+      subcategories: [{ kind: "existing", subcategoryId: "sub-hono" }],
+      confidence: 0.01,
+    });
     expect(
       proposalFromChoices(input, {
         subcategory: choice(UNCLASSIFIED_CHOICE, 0.4),
-      }).kind,
-    ).toBe("unclassified");
+      }).categoryId,
+    ).toBeNull();
     expect(
       proposalFromChoices(input, {
         subcategory: choice("missing", 0.9),
-      }).kind,
-    ).toBe("unclassified");
+      }).subcategories,
+    ).toEqual([]);
   });
 
   it("小分類が無いときは Clef を呼ばず未分類にする", async () => {
@@ -117,8 +121,9 @@ describe("Clef の分類", () => {
       },
     });
     await expect(classifyTech(clefClassifier(decider), input)).resolves.toEqual({
-      kind: "existing",
-      subcategoryId: "sub-hono",
+      kind: "classified",
+      categoryId: "backend",
+      subcategories: [{ kind: "existing", subcategoryId: "sub-hono" }],
     });
     expect(model).toBe(CLEF_MODEL);
     expect(body.model).toBe("clef-flash");

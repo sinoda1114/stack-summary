@@ -13,6 +13,7 @@ import {
   classifyContents,
   classifySchema,
   classifySystemPrompt,
+  toClassificationProposal,
 } from "./prompts/classify.v1";
 
 export { CLASSIFY_PROMPT_VERSION, classifyTech };
@@ -24,7 +25,7 @@ export function geminiClassifier(
   return {
     version: CLASSIFY_PROMPT_VERSION,
     async classify(input: ClassifierInput) {
-      return generateValidated(
+      const output = await generateValidated(
         generator,
         {
           model,
@@ -34,6 +35,7 @@ export function geminiClassifier(
         },
         classifySchema,
       );
+      return toClassificationProposal(output);
     },
   };
 }

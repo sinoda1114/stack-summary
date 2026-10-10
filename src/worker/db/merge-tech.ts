@@ -6,7 +6,7 @@ type TechRow = {
   id: string;
   name: string;
   name_key: string;
-  subcategory_id: string | null;
+  category_id: string | null;
   classified_by: string | null;
   reason: string | null;
   reason_by: string | null;
@@ -37,7 +37,7 @@ export async function mergeTech(
     db
       .prepare(
         `UPDATE techs
-         SET subcategory_id = ?,
+         SET category_id = ?,
              classified_by = ?,
              reason = ?,
              reason_by = ?,
@@ -45,7 +45,7 @@ export async function mergeTech(
          WHERE id = ?`,
       )
       .bind(
-        into.subcategory_id,
+        into.category_id,
         into.classified_by,
         reason.reason,
         reason.reasonBy,
@@ -91,6 +91,9 @@ export async function mergeTech(
         .bind(nameKey, source.name, into.id),
     );
   }
+  statements.push(
+    ...relationMoveStatements(db, source.id, into.id),
+  );
   statements.push(db.prepare("DELETE FROM techs WHERE id = ?").bind(source.id));
   await db.batch(statements);
   return { ok: true };
@@ -118,6 +121,47 @@ function chosenReason(
   return { reason: into.reason, reasonBy: into.reason_by };
 }
 
+function relationMoveStatements(
+  db: D1Database,
+  sourceId: string,
+  intoId: string,
+): D1PreparedStatement[] {
+  const neighbors = `(
+    SELECT to_tech_id AS tech_id FROM tech_relations WHERE from_tech_id = ?2
+    UNION
+    SELECT from_tech_id AS tech_id FROM tech_relations WHERE to_tech_id = ?2
+  )`;
+  return [
+    db
+      .prepare(
+        `DELETE FROM tech_relations
+         WHERE (from_tech_id = ?1 AND to_tech_id = ?2)
+            OR (from_tech_id = ?2 AND to_tech_id = ?1)`,
+      )
+      .bind(sourceId, intoId),
+    db
+      .prepare(
+        `DELETE FROM tech_relations
+         WHERE from_tech_id = ?1
+           AND to_tech_id IN ${neighbors}`,
+      )
+      .bind(sourceId, intoId),
+    db
+      .prepare(
+        `DELETE FROM tech_relations
+         WHERE to_tech_id = ?1
+           AND from_tech_id IN ${neighbors}`,
+      )
+      .bind(sourceId, intoId),
+    db
+      .prepare("UPDATE tech_relations SET from_tech_id = ? WHERE from_tech_id = ?")
+      .bind(intoId, sourceId),
+    db
+      .prepare("UPDATE tech_relations SET to_tech_id = ? WHERE to_tech_id = ?")
+      .bind(intoId, sourceId),
+  ];
+}
+
 function hasText(value: string | null): boolean {
   return value !== null && value.trim().length > 0;
 }
@@ -125,7 +169,7 @@ function hasText(value: string | null): boolean {
 async function loadTech(db: D1Database, id: string): Promise<TechRow | null> {
   return db
     .prepare(
-      `SELECT id, name, name_key, subcategory_id, classified_by, reason, reason_by
+      `SELECT id, name, name_key, category_id, classified_by, reason, reason_by
        FROM techs WHERE id = ?`,
     )
     .bind(id)

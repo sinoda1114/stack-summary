@@ -19,6 +19,8 @@ describe("メモ検索と格上げと書き出し", () => {
       env.DB.prepare("DELETE FROM memo_tags"),
       env.DB.prepare("DELETE FROM memo_urls"),
       env.DB.prepare("DELETE FROM memo_similars"),
+      env.DB.prepare("DELETE FROM tech_relations"),
+      env.DB.prepare("DELETE FROM tech_subcategories"),
       env.DB.prepare("DELETE FROM tech_tags"),
       env.DB.prepare("DELETE FROM tech_aliases"),
       env.DB.prepare("DELETE FROM memos"),
@@ -252,6 +254,8 @@ describe("メモ検索と格上げと書き出し", () => {
       "subcategories",
       "tags",
       "tech_aliases",
+      "tech_relations",
+      "tech_subcategories",
       "tech_tags",
       "techs",
     ]);

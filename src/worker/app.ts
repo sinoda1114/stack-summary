@@ -11,6 +11,7 @@ import { registerInboxRoutes } from "./routes/inbox";
 import { registerMemoRoutes } from "./routes/memos";
 import { registerMentionRoutes } from "./routes/mentions";
 import { registerOverviewRoutes } from "./routes/overview";
+import { registerRelationRoutes } from "./routes/relations";
 import { registerSubcategoryRoutes } from "./routes/subcategories";
 import { registerTechRoutes } from "./routes/techs";
 
@@ -38,6 +39,7 @@ registerInboxRoutes(app);
 registerMemoRoutes(app);
 registerMentionRoutes(app);
 registerOverviewRoutes(app);
+registerRelationRoutes(app);
 registerTechRoutes(app);
 registerSubcategoryRoutes(app);
 

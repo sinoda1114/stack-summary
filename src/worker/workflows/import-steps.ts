@@ -1,4 +1,5 @@
 import { classifyTech, type Classifier } from "../ai/classifier";
+import type { RelationJudge } from "../ai/relation-judge";
 import type { NearTechDecision, NearTechQuery } from "../ai/clef-name-match";
 import {
   InvalidModelOutput,
@@ -46,6 +47,7 @@ export type ImportRunner = {
   modelHeavy: string;
   now: string;
   classifier: Classifier;
+  relationJudge: RelationJudge;
   matchNear?: (input: NearTechQuery) => Promise<NearTechDecision>;
 };
 
@@ -222,24 +224,40 @@ export async function classifyImportTechs(
     });
     const promptVersion = classifier.version;
     switch (accepted.kind) {
-      case "existing":
+      case "classified": {
+        const subcategoryIds: string[] = [];
+        for (const subcategory of accepted.subcategories) {
+          switch (subcategory.kind) {
+            case "existing":
+              subcategoryIds.push(subcategory.subcategoryId);
+              break;
+            case "new": {
+              const createdId = await upsertAiSubcategory(runner.db, {
+                categoryId: accepted.categoryId,
+                name: subcategory.name,
+                now: runner.now,
+              });
+              subcategoryIds.push(createdId);
+              if (!subcategories.some((row) => row.id === createdId)) {
+                subcategories.push({
+                  id: createdId,
+                  categoryId: accepted.categoryId,
+                  name: subcategory.name.trim(),
+                  examples: [],
+                });
+              }
+              break;
+            }
+            default: {
+              const unexpected: never = subcategory;
+              throw new Error(`未知の小分類です: ${String(unexpected)}`);
+            }
+          }
+        }
         await classifyTechRow(runner.db, {
           techId: item.techId,
-          subcategoryId: accepted.subcategoryId,
-          classifiedBy: "model",
-          promptVersion,
-          now: runner.now,
-        });
-        break;
-      case "new": {
-        const subcategoryId = await upsertAiSubcategory(runner.db, {
           categoryId: accepted.categoryId,
-          name: accepted.name,
-          now: runner.now,
-        });
-        await classifyTechRow(runner.db, {
-          techId: item.techId,
-          subcategoryId,
+          subcategoryIds,
           classifiedBy: "model",
           promptVersion,
           now: runner.now,
@@ -249,7 +267,8 @@ export async function classifyImportTechs(
       case "unclassified":
         await classifyTechRow(runner.db, {
           techId: item.techId,
-          subcategoryId: null,
+          categoryId: null,
+          subcategoryIds: [],
           classifiedBy: null,
           promptVersion,
           now: runner.now,

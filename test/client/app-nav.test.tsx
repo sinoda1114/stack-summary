@@ -10,7 +10,7 @@ afterEach(() => {
 });
 
 describe("画面ナビ", () => {
-  it("左のサイドバーに6項目を出す", () => {
+  it("左のサイドバーに7項目を出す", () => {
     stubDesktop();
     render(
       <MantineProvider>
@@ -23,7 +23,7 @@ describe("画面ナビ", () => {
     expect(document.querySelector("aside.sidebar")).toBeTruthy();
     expect(document.querySelector("header.masthead")).toBeNull();
     expect(screen.getByRole("navigation", { name: "画面" })).toBeTruthy();
-    for (const label of ["全体図", "取り込み", "メモ", "受け箱", "分類", "書き出し"]) {
+    for (const label of ["全体図", "関係", "取り込み", "メモ", "受け箱", "分類", "書き出し"]) {
       expect(screen.getByRole("link", { name: label })).toBeTruthy();
     }
   });
@@ -39,6 +39,7 @@ describe("画面ナビ", () => {
     );
 
     expect(screen.getByRole("link", { name: "全体図" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "関係" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "取り込み" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "メモ" })).toBeTruthy();
     expect(screen.queryByRole("link", { name: "受け箱" })).toBeNull();

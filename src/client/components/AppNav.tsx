@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Link, NavLink } from "react-router";
 import { useIsMobile } from "../hooks/useIsMobile";
 
-type NavIconName = "grid" | "import" | "memo" | "inbox" | "taxonomy" | "export";
+type NavIconName = "grid" | "relations" | "import" | "memo" | "inbox" | "taxonomy" | "export";
 
 export function AppNav() {
   const mobile = useIsMobile();
@@ -17,6 +17,7 @@ export function AppNav() {
       </Link>
       <nav className="nav-links" aria-label="画面">
         <Item to="/" end icon="grid" label="全体図" />
+        <Item to="/relations" icon="relations" label="関係" />
         <Item to="/imports" icon="import" label="取り込み" />
         <Item to="/memos" icon="memo" label="メモ" />
         {mobile ? null : (
@@ -58,6 +59,14 @@ function NavIcon(props: { name: NavIconName }): ReactNode {
           <rect x="13.5" y="3.5" width="7" height="7" />
           <rect x="3.5" y="13.5" width="7" height="7" />
           <rect x="13.5" y="13.5" width="7" height="7" />
+        </svg>
+      );
+    case "relations":
+      return (
+        <svg {...common}>
+          <circle cx="7" cy="8" r="2.2" />
+          <circle cx="17" cy="16" r="2.2" />
+          <path d="M9.2 9.4 14.8 14.2" />
         </svg>
       );
     case "import":

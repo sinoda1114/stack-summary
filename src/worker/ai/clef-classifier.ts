@@ -22,7 +22,7 @@ export function clefClassifier(decider: ClefDecider): Classifier {
     async classify(input) {
       const request = classificationRequest(input);
       if (request === null) {
-        return { kind: "unclassified", confidence: 0 };
+        return { categoryId: null, subcategories: [], confidence: 0 };
       }
       const response = await decider.decide(request);
       return proposalFromChoices(input, response.answers);
@@ -84,17 +84,17 @@ export function proposalFromChoices(
   }
   const confidence = subcategory.confidence;
   if (subcategory.choice === UNCLASSIFIED_CHOICE) {
-    return { kind: "unclassified", confidence };
+    return { categoryId: null, subcategories: [], confidence };
   }
   const chosenSubcategory = input.subcategories.find(
     (item) => item.id === subcategory.choice,
   );
   if (chosenSubcategory === undefined) {
-    return { kind: "unclassified", confidence };
+    return { categoryId: null, subcategories: [], confidence };
   }
   return {
-    kind: "existing",
-    subcategoryId: chosenSubcategory.id,
+    categoryId: chosenSubcategory.categoryId,
+    subcategories: [{ kind: "existing", subcategoryId: chosenSubcategory.id }],
     confidence,
   };
 }

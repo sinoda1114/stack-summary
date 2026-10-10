@@ -9,6 +9,7 @@ import { ImportPage } from "./pages/ImportPage";
 import { InboxPage } from "./pages/InboxPage";
 import { MemoPage } from "./pages/MemoPage";
 import { OverviewPage } from "./pages/OverviewPage";
+import { RelationsPage } from "./pages/RelationsPage";
 import { SubcategoryPage } from "./pages/SubcategoryPage";
 import { TaxonomyPage } from "./pages/TaxonomyPage";
 import { TechPage } from "./pages/TechPage";
@@ -34,6 +35,7 @@ createRoot(root).render(
           <div className="sheet">
             <Routes>
               <Route path="/" element={<OverviewPage />} />
+              <Route path="/relations" element={<RelationsPage />} />
               <Route path="/imports" element={<ImportPage />} />
               <Route path="/memos" element={<MemoPage />} />
               <Route path="/memos/:id" element={<MemoPage />} />

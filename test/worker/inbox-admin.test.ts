@@ -25,6 +25,8 @@ describe("受け箱と分類の管理", () => {
       env.DB.prepare("DELETE FROM memo_tags"),
       env.DB.prepare("DELETE FROM memo_urls"),
       env.DB.prepare("DELETE FROM memo_similars"),
+      env.DB.prepare("DELETE FROM tech_relations"),
+      env.DB.prepare("DELETE FROM tech_subcategories"),
       env.DB.prepare("DELETE FROM tech_tags"),
       env.DB.prepare("DELETE FROM tech_aliases"),
       env.DB.prepare("DELETE FROM memos"),
@@ -68,21 +70,21 @@ describe("受け箱と分類の管理", () => {
     });
     expect(merged).toEqual({ ok: true });
     const into = await env.DB.prepare(
-      "SELECT status, reason, reason_by, subcategory_id, classified_by FROM techs WHERE id = ?",
+      "SELECT status, reason, reason_by, category_id, classified_by FROM techs WHERE id = ?",
     )
       .bind(intoId)
       .first<{
         status: string;
         reason: string;
         reason_by: string;
-        subcategory_id: string | null;
+        category_id: string | null;
         classified_by: string | null;
       }>();
     expect(into).toEqual({
       status: "adopted",
       reason: "消す側",
       reason_by: "model",
-      subcategory_id: null,
+      category_id: null,
       classified_by: "user",
     });
     expect(await techCount()).toBe(1);
@@ -178,14 +180,75 @@ describe("受け箱と分類の管理", () => {
       await mergeSubcategory(env.DB, { sourceId: "sub-a", intoId: "sub-b", now: NOW }),
     ).toEqual({ ok: true });
     const tech = await env.DB.prepare(
-      "SELECT subcategory_id, classified_by FROM techs WHERE id = ?",
+      `SELECT t.category_id, t.classified_by, ts.subcategory_id
+       FROM techs t
+       JOIN tech_subcategories ts ON ts.tech_id = t.id
+       WHERE t.id = ?`,
     )
       .bind(techId)
-      .first<{ subcategory_id: string; classified_by: string }>();
-    expect(tech).toEqual({ subcategory_id: "sub-b", classified_by: "user" });
+      .first<{ category_id: string; classified_by: string; subcategory_id: string }>();
+    expect(tech).toEqual({
+      category_id: "backend",
+      classified_by: "user",
+      subcategory_id: "sub-b",
+    });
     expect(
       await env.DB.prepare("SELECT id FROM subcategories WHERE id = 'sub-a'").first(),
     ).toBeNull();
+  });
+
+  it("別の大分類へ小分類を統合しても、統合先の行は残る", async () => {
+    await insertSubcategory("sub-edge", "infra", "エッジ", "ai", 0);
+    await insertSubcategory("sub-api", "backend", "API", "user", 1);
+    await insertSubcategory("sub-old", "infra", "古い", "ai", 0);
+    const techId = await insertTech("Hono", "sub-edge", "unrated", null, "model");
+    await env.DB.prepare(
+      "INSERT INTO tech_subcategories (tech_id, subcategory_id) VALUES (?, 'sub-old')",
+    )
+      .bind(techId)
+      .run();
+    expect(
+      await mergeSubcategory(env.DB, {
+        sourceId: "sub-edge",
+        intoId: "sub-api",
+        now: NOW,
+      }),
+    ).toEqual({ ok: true });
+    const rows = await env.DB.prepare(
+      `SELECT t.category_id, ts.subcategory_id
+       FROM techs t
+       JOIN tech_subcategories ts ON ts.tech_id = t.id
+       WHERE t.id = ?
+       ORDER BY ts.subcategory_id`,
+    )
+      .bind(techId)
+      .all<{ category_id: string; subcategory_id: string }>();
+    expect(rows.results).toEqual([{ category_id: "backend", subcategory_id: "sub-api" }]);
+  });
+
+  it("小分類の大分類を変えると、付いている技術の大分類も変わる", async () => {
+    await insertSubcategory("sub-edge", "infra", "エッジ", "ai", 0);
+    const techId = await insertTech("Hono", "sub-edge", "unrated", null, "model");
+    expect(
+      await patchSubcategory(
+        env.DB,
+        "sub-edge",
+        { categoryId: "backend", now: NOW },
+      ),
+    ).toEqual({ ok: true });
+    const tech = await env.DB.prepare(
+      `SELECT t.category_id, t.classified_by, ts.subcategory_id
+       FROM techs t
+       JOIN tech_subcategories ts ON ts.tech_id = t.id
+       WHERE t.id = ?`,
+    )
+      .bind(techId)
+      .first<{ category_id: string; classified_by: string; subcategory_id: string }>();
+    expect(tech).toEqual({
+      category_id: "backend",
+      classified_by: "user",
+      subcategory_id: "sub-edge",
+    });
   });
 
   it("正式名の別名は消せない。大分類の改名と並びは書ける", async () => {
@@ -251,9 +314,13 @@ async function insertTech(
   const key = aliasKey(name);
   await env.DB.prepare(
     `INSERT INTO techs (
-       id, name, name_key, subcategory_id, status, status_by, reason, reason_by,
+       id, name, name_key, category_id, status, status_by, reason, reason_by,
        classified_by, created_at, updated_at
-     ) VALUES (?, ?, ?, ?, ?, 'model', ?, ?, ?, ?, ?)`,
+     ) VALUES (
+       ?, ?, ?,
+       (SELECT category_id FROM subcategories WHERE id = ?),
+       ?, 'model', ?, ?, ?, ?, ?
+     )`,
   )
     .bind(
       id,
@@ -268,6 +335,13 @@ async function insertTech(
       NOW,
     )
     .run();
+  if (subcategoryId !== null) {
+    await env.DB.prepare(
+      "INSERT INTO tech_subcategories (tech_id, subcategory_id) VALUES (?, ?)",
+    )
+      .bind(id, subcategoryId)
+      .run();
+  }
   return id;
 }
 

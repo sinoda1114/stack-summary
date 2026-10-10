@@ -27,4 +27,4 @@ npm run eval:classify
 }
 ```
 
-`predicted` が無い行は採点しません。本番の Gemini はこの段階では呼びません。
+`predicted` が無い行は採点しません。`subcategoryIds` がある行は、その集合が一致すれば小分類を当てます。本番の Gemini はこの段階では呼びません。

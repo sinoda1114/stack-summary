@@ -23,6 +23,8 @@ describe("別名の照合と新機能の解決", () => {
       env.DB.prepare("DELETE FROM memo_tags"),
       env.DB.prepare("DELETE FROM memo_urls"),
       env.DB.prepare("DELETE FROM memo_similars"),
+      env.DB.prepare("DELETE FROM tech_relations"),
+      env.DB.prepare("DELETE FROM tech_subcategories"),
       env.DB.prepare("DELETE FROM tech_tags"),
       env.DB.prepare("DELETE FROM tech_aliases"),
       env.DB.prepare("DELETE FROM memos"),
@@ -50,7 +52,7 @@ describe("別名の照合と新機能の解決", () => {
     expect(result.discarded).toEqual(["", "-"]);
 
     const tech = await env.DB.prepare(
-      `SELECT id, name, name_key, subcategory_id, status, status_by
+      `SELECT id, name, name_key, category_id, status, status_by
        FROM techs
        WHERE id = ?`,
     )
@@ -59,7 +61,7 @@ describe("別名の照合と新機能の解決", () => {
         id: string;
         name: string;
         name_key: string;
-        subcategory_id: string | null;
+        category_id: string | null;
         status: string;
         status_by: string;
       }>();
@@ -67,7 +69,7 @@ describe("別名の照合と新機能の解決", () => {
       id: result.techId,
       name: "Hono",
       name_key: "hono",
-      subcategory_id: null,
+      category_id: null,
       status: "unrated",
       status_by: "model",
     });
@@ -845,7 +847,12 @@ function annotationRunner(techId: string): ImportRunner {
     classifier: {
       version: "clef-flash.v1",
       async classify() {
-        return { kind: "unclassified", confidence: 0 };
+        return { categoryId: null, subcategories: [], confidence: 0 };
+      },
+    },
+    relationJudge: {
+      async judge() {
+        return "none";
       },
     },
     matchNear: async () => ({ kind: "existing", techId }),

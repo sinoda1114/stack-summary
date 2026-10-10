@@ -52,6 +52,12 @@ describe("画面の直接読み込み", () => {
     expect(response.headers.get("content-type")).toContain("application/json");
   });
 
+  it("関係の直接読み込みは SPA", async () => {
+    const response = await call("/relations");
+    expect(response.status).toBe(200);
+    expect(await response.text()).toContain('id="root"');
+  });
+
   it("受け箱と分類管理の直接読み込みは SPA", async () => {
     const inbox = await call("/inbox");
     const taxonomy = await call("/taxonomy");

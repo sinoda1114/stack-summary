@@ -4,14 +4,14 @@ export type InboxTech = {
   id: string;
   name: string;
   status: TechStatus;
-  subcategoryId: string | null;
+  categoryId: string | null;
   updatedAt: string;
 };
 
 export async function listUnratedTechs(db: D1Database): Promise<InboxTech[]> {
   return listInbox(
     db,
-    `SELECT id, name, status, subcategory_id, updated_at
+    `SELECT id, name, status, category_id, updated_at
      FROM techs
      WHERE status = 'unrated'
      ORDER BY updated_at, name`,
@@ -21,9 +21,9 @@ export async function listUnratedTechs(db: D1Database): Promise<InboxTech[]> {
 export async function listUnclassifiedTechs(db: D1Database): Promise<InboxTech[]> {
   return listInbox(
     db,
-    `SELECT id, name, status, subcategory_id, updated_at
+    `SELECT id, name, status, category_id, updated_at
      FROM techs
-     WHERE subcategory_id IS NULL
+     WHERE category_id IS NULL
      ORDER BY updated_at, name`,
   );
 }
@@ -33,14 +33,14 @@ async function listInbox(db: D1Database, sql: string): Promise<InboxTech[]> {
     id: string;
     name: string;
     status: TechStatus;
-    subcategory_id: string | null;
+    category_id: string | null;
     updated_at: string;
   }>();
   return listed.results.map((row) => ({
     id: row.id,
     name: row.name,
     status: row.status,
-    subcategoryId: row.subcategory_id,
+    categoryId: row.category_id,
     updatedAt: row.updated_at,
   }));
 }

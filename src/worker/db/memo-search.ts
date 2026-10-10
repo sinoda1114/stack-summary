@@ -1,3 +1,5 @@
+import { tagNameKey } from "./tags";
+
 export type MemoListItem = {
   id: string;
   title: string;
@@ -50,6 +52,7 @@ export async function searchMemos(
 ): Promise<MemoSearchPage> {
   const q = input.q.trim();
   const tag = input.tag.trim();
+  const tagKey = tagNameKey(tag);
   const cursor = input.cursor ?? "";
   const listed = await db
     .prepare(
@@ -60,7 +63,7 @@ export async function searchMemos(
            ? = '' OR EXISTS (
              SELECT 1 FROM memo_tags mt
              JOIN tags t ON t.id = mt.tag_id
-             WHERE mt.memo_id = m.id AND t.name = ?
+             WHERE mt.memo_id = m.id AND (t.name = ? OR t.name_key = ?)
            )
          )
          AND (? = '' OR (
@@ -76,7 +79,7 @@ export async function searchMemos(
          || '|' || m.id DESC
        LIMIT ?`,
     )
-    .bind(q, q, tag, tag, cursor, cursor, PAGE_SIZE + 1)
+    .bind(q, q, tag, tag, tagKey, cursor, cursor, PAGE_SIZE + 1)
     .all<{ id: string; title: string; memo_date: string | null; created_at: string }>();
   const page = listed.results.slice(0, PAGE_SIZE).map((row) => ({
     id: row.id,

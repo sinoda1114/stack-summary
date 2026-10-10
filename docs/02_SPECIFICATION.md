@@ -162,7 +162,7 @@ CREATE TABLE techs (
   id               TEXT PRIMARY KEY,
   name             TEXT NOT NULL,
   name_key         TEXT NOT NULL UNIQUE,
-  subcategory_id   TEXT REFERENCES subcategories(id),
+  category_id      TEXT REFERENCES categories(id),
   status           TEXT NOT NULL DEFAULT 'unrated'
                    CHECK (status IN ('adopted','want_to_try','watching','rejected','unrated')),
   status_by        TEXT NOT NULL DEFAULT 'model' CHECK (status_by IN ('user','model')),
@@ -196,9 +196,10 @@ CREATE TABLE memo_mentions (
 );
 
 CREATE TABLE tags (
-  id    TEXT PRIMARY KEY,
-  name  TEXT NOT NULL,
-  kind  TEXT NOT NULL CHECK (kind IN ('topic','vendor','project')),
+  id        TEXT PRIMARY KEY,
+  name      TEXT NOT NULL,
+  kind      TEXT NOT NULL CHECK (kind IN ('topic','vendor','project')),
+  name_key  TEXT,
   UNIQUE (kind, name)
 );
 
@@ -215,11 +216,26 @@ CREATE TABLE memo_tags (
   source   TEXT NOT NULL CHECK (source IN ('user','model')),
   PRIMARY KEY (memo_id, tag_id)
 );
+
+CREATE TABLE tech_subcategories (
+  tech_id         TEXT NOT NULL REFERENCES techs(id) ON DELETE CASCADE,
+  subcategory_id  TEXT NOT NULL REFERENCES subcategories(id) ON DELETE CASCADE,
+  PRIMARY KEY (tech_id, subcategory_id)
+);
+
+CREATE TABLE tech_relations (
+  from_tech_id  TEXT NOT NULL REFERENCES techs(id) ON DELETE CASCADE,
+  to_tech_id    TEXT NOT NULL REFERENCES techs(id) ON DELETE CASCADE,
+  kind          TEXT NOT NULL CHECK (kind IN ('runs_on','depends_on','related')),
+  PRIMARY KEY (from_tech_id, to_tech_id),
+  CHECK (from_tech_id <> to_tech_id)
+);
 ```
 
 - 大分類 9 個は `migrations/0001_init.sql` で初期投入する（FR-21）。
 - `memos.body` は表示用である。リンクを除いた文字列のハッシュ列は置かない（FR-04）。
-- `techs.subcategory_id` が NULL のときだけ未分類である。分類する書き込みは小分類 ID を必ず入れる。大分類の列は `techs` に置かない（FR-20）。
+- 未分類は `techs.category_id` が NULL のときである。小分類は `tech_subcategories` に複数置ける。小分類は、その技術の `category_id` に属するものだけである（FR-20）。
+- 技術同士の関係は `tech_relations` の 1 行である。同じ 2 技術の組は 1 つで、逆向きの行は置かない。自分から自分は置かない。
 - 正式名は `name_key` で一意にする。`name_key` は §6.4 の別名キーと同じ正規化である。正式名と同じキーを `tech_aliases` にも入れ、照合は常に `alias_key` で行う（FR-12）。
 - `locked` 列は置かない。確定は出所が `user` であることである。
 
@@ -233,7 +249,9 @@ CREATE TABLE memo_tags (
 | 技術 | `techs.name_key` | 正規化して同じ正式名は 1 行 |
 | 別名 | `tech_aliases.alias_key` | 正規化して同じ呼び方は 1 行 |
 | メモと技術 | `(memo_id, tech_id)` | 役割は 1 つ |
-| タグ | `(kind, name)` | 種類と名前で 1 行 |
+| タグ | `(kind, name)` と `(kind, name_key)` | 表示名と、正規化した印で 1 行。`name_key` は NFKC、空白の畳み、小文字 |
+| 技術と小分類 | `(tech_id, subcategory_id)` | 同じ小分類は 1 行 |
+| 技術の関係 | `(from_tech_id, to_tech_id)` と無向の組 | 同じ 2 技術は 1 行 |
 | 技術タグ / メモタグ | 複合主キー | 同じタグは 1 行。出所が `user` の行は残す |
 | 小分類 | `(category_id, name)` | 新設は衝突時に既存行を使う |
 
@@ -331,19 +349,23 @@ interface Classifier {
     tech: { name: string; context: string };
     categories: { id: string; name: string }[];
     subcategories: { id: string; categoryId: string; name: string; examples: string[] }[];
-  }): Promise<
-    | { kind: "existing"; subcategoryId: string; confidence: number }
-    | { kind: "new"; categoryId: string; name: string; confidence: number }
-    | { kind: "unclassified" }
-  >;
+  }): Promise<{
+    categoryId: string | null;
+    subcategories: (
+      | { kind: "existing"; subcategoryId: string }
+      | { kind: "new"; name: string }
+    )[];
+    confidence: number;
+  }>;
 }
 ```
 
-戻りは提案である。処理側は次のときに未分類（`subcategory_id = NULL`、`classified_by = NULL`）にする。
+戻りは提案である。大分類は 1 つ、小分類は複数である。処理側は次のときに未分類（`category_id = NULL`、小分類の行なし、`classified_by = NULL`）にする。
 
-- `kind` が `unclassified` である
-- `categoryId` または `subcategoryId` が、渡した一覧に無い
-- 新しい小分類の名前を NFKC し空白を除いた結果が、`その他`、`その他の技術`、`未分類`、`不明`、`other`、`others`、`misc`、`miscellaneous`、`uncategorized` のいずれかである
+- `categoryId` が null、または渡した一覧に無い
+- 提案した小分類が 1 つ以上あり、受理できた小分類が 0 である
+- 小分類は、その大分類に属さない既存 ID を捨てる。新しい名前を NFKC し空白を除いた結果が、`その他`、`その他の技術`、`未分類`、`不明`、`other`、`others`、`misc`、`miscellaneous`、`uncategorized` のいずれかなら捨てる。同じ大分類の既存名に正規化で当たれば、その既存行を使う
+- 大分類が受理でき、小分類の提案が空なら、大分類だけを書く
 
 小分類の新設は次の upsert に閉じ込める。衝突したときは既存行を使い、`created_by` と `reviewed` は変えない。
 
@@ -353,7 +375,7 @@ VALUES (?, ?, ?, ?, 'ai', 0, ?)
 ON CONFLICT (category_id, name) DO NOTHING;
 ```
 
-- 取り込みの分類は `clefClassifier`（`@cf/cloudflare/clef-flash`）である。質問は小分類 1 つで、大分類はその小分類の親である。戻りは小分類 ID 1 つで、配列にはしない。`geminiClassifier` は同じ `Classifier` の差し替え口として残す（FR-29）。Clef は `kind: "new"` を返さない。記録する版は `clef-flash.v1` である。
+- 取り込みの分類は `clefClassifier`（`@cf/cloudflare/clef-flash`）である。質問は小分類 1 つで、大分類はその小分類の親である。保存は `tech_subcategories` の行にし、Clef が選んだ 1 つを書く。利用者は後から複数付けられる。`geminiClassifier` は同じ `Classifier` の差し替え口として残す（FR-29）。Clef は新しい小分類名を作らない。記録する版は `clef-flash.v1` である。
 - 選択のルール: 大分類は渡した一覧からしか選ばない（FR-22）。同じ小分類の技術同士が「どちらにするか」と比べられる関係になるよう選ぶ。どれも違えば未分類にし、新しい小分類は作らない。「その他」のような寄せ集めは選ばない（FR-24）。
 - 確信度の数値だけでは未分類にしない。分布を見るまでは、取り込みの拒否条件にもしない（03 §4 段階 5）。
 - 新規行の出所は `model`。`prompt_version` を記録する（NFR-08）。`classified_by = 'user'` の技術は、このステップで小分類を変えない。
@@ -371,7 +393,9 @@ ON CONFLICT (category_id, name) DO NOTHING;
 | メモの分割 | `GEMINI_MODEL_HEAVY` | 原文から題、本文、日付を作る |
 | 技術名の抽出 | `GEMINI_MODEL_LIGHT` | メモから名前、関係、別名、タグを書く |
 | 問い合わせの答え | `GEMINI_MODEL_LIGHT` | メモと技術への質問だけ。渡した一覧から答えの文を書く |
-| 大分類・小分類 | Clef `clef-flash` | 渡した一覧から選ぶ。どれも違えば未分類。新しい分類名は作らない |
+| 大分類・小分類 | Clef `clef-flash` | 渡した小分類から 1 つ選ぶ。大分類はその親。どれも違えば未分類。新しい分類名は作らない |
+| 技術関係の候補 | `GEMINI_MODEL_LIGHT` | どの技術とどの技術か。kind は決めない。完全一致の別名は D1 |
+| 技術関係の kind | Clef `clef-flash` | `runs_on` / `depends_on` / `related` / `none`。取り込みは `clefRelationJudge` を渡す |
 | 完全一致でない名寄せ | Clef `clef-flash` | 候補から 1 つか新しい技術かを選ぶ。完全一致の別名キーは D1 の batch のまま |
 | チャットの質問の振り分け | Clef `clef-flash` | メモと技術への質問、使い方、対象外。入口は `chatRouter`。画面は変えない |
 - 仮: 利用枠は有料枠。貼り付け全文を Gemini に送る。他人の発言は除かない。無料枠の規約確認は未了。
@@ -398,11 +422,12 @@ ON CONFLICT (category_id, name) DO NOTHING;
 2. 両方の `reason` が空でないとき、`reasonChoice` が `into` または `source` でなければ 409（`reason_conflict`）。利用者に残す理由を選ばせる。選ばれた側の理由と `reason_by` を残す側に書く。片方だけが空でないときは、その理由と出所を残す側に残す。両方空なら理由は空のままにする。
 3. 状態は残す側を残す。
 4. 次を 1 つの `batch()` で、この順に行う。
-   1. 残す側の `subcategory_id` と `classified_by` を、残す側の行に明示して書く。
-   2. 別名・タグ・メモ関係のうち、キーが衝突する行は残す側を残す。同じメモに両方の役割があるときは、残す側の関係を残して 1 行に畳む。
-   3. 衝突しない別名・タグ・メモ関係を残す側へ移す。移した別名の出所は、統合元の出所を保つ。
-   4. 統合元の正式名を残す側の別名にする。`alias_key` が残す側に既にあれば、残す側の行を残す。無ければ出所 `user` で追加する。
-   5. 統合元の技術を削除する。
+   1. 残す側の `category_id` と `classified_by` を、残す側の行に明示して書く。小分類は残す側の行を残す。
+   2. 技術の関係は、自己参照と既存の組を除いて残す側へ移す。
+   3. 別名・タグ・メモ関係のうち、キーが衝突する行は残す側を残す。同じメモに両方の役割があるときは、残す側の関係を残して 1 行に畳む。
+   4. 衝突しない別名・タグ・メモ関係を残す側へ移す。移した別名の出所は、統合元の出所を保つ。
+   5. 統合元の正式名を残す側の別名にする。`alias_key` が残す側に既にあれば、残す側の行を残す。無ければ出所 `user` で追加する。
+   6. 統合元の技術を削除する。
 
 ## 7. JSON API
 
@@ -411,14 +436,15 @@ ON CONFLICT (category_id, name) DO NOTHING;
 | メソッド・パス | 内容 |
 | --- | --- |
 | `GET /api/health` | 認証済みなら `{ ok: true }`。JWT が無ければ 403。段階 1 で実装する |
-| `GET /api/overview?status=&tag=&q=` | 全体図。大分類 → 小分類 → 技術（`id` `name` `status` `memoCount`）。`q` は技術名、別名、理由。大分類は絞る前の小分類数 `subcategoryCount` を返す。一致しない小分類は省く。小分類が 1 つだけの大分類は、小分類名を返してよいが、画面は出さない（FR-27）。関連メモは `memo_date` の降順、空なら `created_at` の降順 |
+| `GET /api/overview?status=&tag=&q=` | 全体図。大分類 → 小分類 → 技術（`id` `name` `status` `memoCount`）。小分類の無い技術は `ungrouped`。`q` は技術名、別名、理由。大分類は絞る前の小分類数 `subcategoryCount` を返す。一致しない小分類は省く。小分類が 1 つだけで `ungrouped` が空の大分類は、小分類名を返してよいが、画面は出さない（FR-27）。関連メモは `memo_date` の降順、空なら `created_at` の降順 |
 | `GET /api/techs` | 技術の一覧（`id` `name` `status`）。統合先の候補はここから取る |
 | `GET /api/techs/:id` | 技術の詳細（別名・タグ・関連メモを新しい順、最終更新日） |
-| `PATCH /api/techs/:id` | 状態・理由・小分類・タグの更新。変えた項目の出所を `user` にする。小分類を変えたら `classified_by = 'user'` |
+| `PATCH /api/techs/:id` | 状態・理由・大分類・小分類・タグの更新。変えた項目の出所を `user` にする。大分類または小分類を変えたら `classified_by = 'user'`。小分類は、その技術の大分類に属するものだけ |
+| `GET /api/relations` | 技術の関係。`nodes` は `{ id, name }`、`edges` は `{ fromId, toId, kind }`。関係に出る技術だけ |
 | `POST /api/techs/:id/merge` | §6.10 |
 | `POST /api/techs/:id/aliases` / `DELETE /api/techs/:id/aliases/:key` | 別名の追加・削除。追加の出所は `user`。正式名の `name_key` と同じキーは削除できない |
 | `GET /api/inbox/unrated` | 未評価の受け箱 |
-| `GET /api/inbox/unclassified` | `subcategory_id IS NULL` の受け箱 |
+| `GET /api/inbox/unclassified` | `category_id IS NULL` の受け箱 |
 | `GET /api/inbox/subcategories` | `created_by = 'ai'` かつ `reviewed = 0` の小分類だけ |
 | `POST /api/mentions/promote` | §6.6 |
 | `GET /api/subcategories/:id` | 小分類の比較一覧 |
@@ -441,7 +467,7 @@ ON CONFLICT (category_id, name) DO NOTHING;
 
 JSON 書き出しの `data` は、次のキーを表と 1 対 1 で持つ。各行のキーは列名のままである。別名、関係、言及、タグ、分類の確定（`classified_by`）、原文（`imports.raw_text` と `memos.body`）を含む。
 
-`imports`、`memos`、`memo_urls`、`memo_similars`、`categories`、`subcategories`、`techs`、`tech_aliases`、`memo_techs`、`memo_mentions`、`tags`、`tech_tags`、`memo_tags`
+`imports`、`memos`、`memo_urls`、`memo_similars`、`categories`、`subcategories`、`techs`、`tech_aliases`、`tech_subcategories`、`tech_relations`、`memo_techs`、`memo_mentions`、`tags`、`tech_tags`、`memo_tags`
 
 Markdown は同じ表と同じ列を、見出しと行で書く。
 
@@ -451,7 +477,8 @@ Markdown は同じ表と同じ列を、見出しと行で書く。
 
 | 画面 | 内容 | 主な Mantine 部品 |
 | --- | --- | --- |
-| 全体図（ホーム） | 大分類ごとのセクションに、小分類の行と技術のバッジ（状態の色）を並べる。小分類が 1 つだけの大分類は小分類名を出さず、技術だけを並べる。絞り込みで残った小分類が 1 件でも、`subcategoryCount` が 2 以上なら名前を出す。絞り込みを変えたら、進行中の取得は捨てる。上部に状態・タグ・キーワードの絞り込み | `AppShell`、`SegmentedControl`、`MultiSelect`、`TextInput`、`Badge`、`SimpleGrid`、`Accordion`（スマホ） |
+| 全体図（ホーム） | 大分類ごとのセクションに、小分類の行と技術のバッジ（状態の色）を並べる。技術は属する小分類の数だけ出る。小分類が 1 つだけの大分類は小分類名を出さず、技術だけを並べる。絞り込みで残った小分類が 1 件でも、`subcategoryCount` が 2 以上なら名前を出す。絞り込みを変えたら、進行中の取得は捨てる。上部に状態・タグ・キーワードの絞り込み | `AppShell`、`SegmentedControl`、`MultiSelect`、`TextInput`、`Badge`、`SimpleGrid`、`Accordion`（スマホ） |
+| 関係 | `/relations`。左のサイドバーから開く。技術名のノードと矢印。ラベルは kind。ノードから技術詳細へ行く。色と角丸は全体の画面に合わせ、演出は付けない | `Title`、`Text` |
 | 技術の詳細 | 状態・理由の編集、小分類の移動、別名・タグ、関連メモ（新しい順、関係を表示）、統合 | `Drawer`、`Select`、`Textarea`、`TagsInput`、`Timeline` |
 | 小分類の比較 | 中の技術を状態・理由・関連メモ数・最終更新日で並べる | `Table` |
 | メモ | 検索と一覧、詳細（関連技術・言及・似たメモ）。言及から技術への格上げ | `TextInput`、`Card`、`Anchor` |
@@ -496,7 +523,7 @@ Preview URL は無効にするため（§2）、確認はローカルで行う�
 
 段階 2 の完了は、マイグレーション適用後に仕様の表があり、大分類が 9 個入っていることである。
 
-分類の評価ファイルは、仮として `eval/golden.local.json` の `{ samples: [{ name, context, expected: { categoryId, subcategoryId }, predicted? }] }` である。`predicted` が無い行は採点しない。ファイルが無いこと、および仮の目安に届かないことは失敗にしない。正解サンプルは未確定で、コミットしない。
+分類の評価ファイルは、仮として `eval/golden.local.json` の `{ samples: [{ name, context, expected: { categoryId, subcategoryId, subcategoryIds? }, predicted? }] }` である。`subcategoryIds` がある行は、その集合が一致すれば小分類を当てたことにする。`predicted` が無い行は採点しない。ファイルが無いこと、および仮の目安に届かないことは失敗にしない。正解サンプルは未確定で、コミットしない。
 
 ## 11. 要件との対応
 

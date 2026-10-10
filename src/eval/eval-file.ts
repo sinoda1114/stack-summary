@@ -3,15 +3,13 @@ import { z } from "zod";
 const labelSchema = z.object({
   categoryId: z.string().nullable(),
   subcategoryId: z.string().nullable(),
+  subcategoryIds: z.array(z.string()).optional(),
 });
 
 const sampleSchema = z.object({
   name: z.string(),
   context: z.string(),
-  expected: z.object({
-    categoryId: z.string().nullable(),
-    subcategoryId: z.string().nullable(),
-  }),
+  expected: labelSchema,
   predicted: labelSchema.optional(),
 });
 

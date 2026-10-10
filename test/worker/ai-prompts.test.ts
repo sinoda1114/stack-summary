@@ -16,6 +16,7 @@ import {
 import {
   classifySchema,
   classifySystemPrompt,
+  toClassificationProposal,
 } from "../../src/worker/ai/prompts/classify.v1";
 import { extractSystemPrompt, extractTechSchema } from "../../src/worker/ai/prompts/extract.v1";
 import { splitMemoSchema, splitSystemPrompt } from "../../src/worker/ai/prompts/split.v1";
@@ -221,22 +222,63 @@ describe("Gemini の指示とモック", () => {
     };
     expect(
       acceptClassification(
-        { kind: "existing", subcategoryId: "sub-hono", confidence: 0.1 },
+        {
+          categoryId: "backend",
+          subcategories: [{ kind: "existing", subcategoryId: "sub-hono" }],
+          confidence: 0.1,
+        },
         input,
       ),
-    ).toEqual({ kind: "existing", subcategoryId: "sub-hono" });
+    ).toEqual({
+      kind: "classified",
+      categoryId: "backend",
+      subcategories: [{ kind: "existing", subcategoryId: "sub-hono" }],
+    });
     expect(
       acceptClassification(
-        { kind: "existing", subcategoryId: "missing", confidence: 0.9 },
+        {
+          categoryId: "backend",
+          subcategories: [
+            { kind: "existing", subcategoryId: "sub-hono" },
+            { kind: "new", name: "エッジ" },
+          ],
+          confidence: 0.4,
+        },
+        input,
+      ),
+    ).toEqual({
+      kind: "classified",
+      categoryId: "backend",
+      subcategories: [
+        { kind: "existing", subcategoryId: "sub-hono" },
+        { kind: "new", name: "エッジ" },
+      ],
+    });
+    expect(
+      acceptClassification(
+        {
+          categoryId: "backend",
+          subcategories: [{ kind: "existing", subcategoryId: "missing" }],
+          confidence: 0.9,
+        },
+        input,
+      ),
+    ).toEqual({ kind: "unclassified" });
+    expect(
+      acceptClassification(
+        toClassificationProposal({
+          categoryId: "backend",
+          subcategories: [{ kind: "existing", subcategoryId: null, name: null }],
+          confidence: 0.4,
+        }),
         input,
       ),
     ).toEqual({ kind: "unclassified" });
     expect(
       acceptClassification(
         {
-          kind: "new",
           categoryId: "missing",
-          name: "エッジ",
+          subcategories: [{ kind: "new", name: "エッジ" }],
           confidence: 0.9,
         },
         input,
@@ -245,9 +287,8 @@ describe("Gemini の指示とモック", () => {
     expect(
       acceptClassification(
         {
-          kind: "new",
           categoryId: "backend",
-          name: " その他 ",
+          subcategories: [{ kind: "new", name: " その他 " }],
           confidence: 0.9,
         },
         input,
@@ -255,31 +296,59 @@ describe("Gemini の指示とモック", () => {
     ).toEqual({ kind: "unclassified" });
     expect(
       acceptClassification(
-        { kind: "new", categoryId: "backend", name: "エッジ", confidence: 0.4 },
+        {
+          categoryId: "backend",
+          subcategories: [{ kind: "new", name: "エッジ" }],
+          confidence: 0.4,
+        },
         input,
       ),
-    ).toEqual({ kind: "new", categoryId: "backend", name: "エッジ" });
-    expect(
-      acceptClassification(
-        { kind: "new", categoryId: "backend", name: "  ", confidence: 0.4 },
-        input,
-      ),
-    ).toEqual({ kind: "unclassified" });
+    ).toEqual({
+      kind: "classified",
+      categoryId: "backend",
+      subcategories: [{ kind: "new", name: "エッジ" }],
+    });
     expect(
       acceptClassification(
         {
-          kind: "new",
           categoryId: "backend",
-          name: "\u0085",
+          subcategories: [{ kind: "new", name: "  " }],
           confidence: 0.4,
         },
         input,
       ),
     ).toEqual({ kind: "unclassified" });
+    expect(
+      acceptClassification(
+        {
+          categoryId: "backend",
+          subcategories: [{ kind: "new", name: "\u0085" }],
+          confidence: 0.4,
+        },
+        input,
+      ),
+    ).toEqual({ kind: "unclassified" });
+    expect(
+      acceptClassification(
+        {
+          categoryId: "frontend",
+          subcategories: [{ kind: "existing", subcategoryId: "sub-hono" }],
+          confidence: 0.4,
+        },
+        {
+          categories: [
+            ...input.categories,
+            { id: "frontend", name: "フロントエンド" },
+          ],
+          subcategories: input.subcategories,
+        },
+      ),
+    ).toEqual({ kind: "unclassified" });
 
     const generator = scripted([
       JSON.stringify({
-        kind: "unclassified",
+        categoryId: null,
+        subcategories: [],
         confidence: 0.2,
       }),
     ]);
@@ -290,7 +359,8 @@ describe("Gemini の指示とモック", () => {
     expect(generator.requests[0]?.system).toContain("existing");
     expect(generator.requests[0]?.system).toBe(classifySystemPrompt);
     const classifyJson = JSON.stringify(geminiResponseSchema(classifySchema));
-    expect(classifyJson).toContain('"enum":["existing"]');
+    expect(classifyJson).toContain('"existing"');
+    expect(classifyJson).toContain('"new"');
     expect(classifyJson).not.toContain('"const"');
     const splitJson = JSON.stringify(geminiResponseSchema(splitMemoSchema));
     expect(splitJson).toContain('"format":"date"');

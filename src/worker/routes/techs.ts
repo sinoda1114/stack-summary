@@ -8,7 +8,8 @@ import { fail, ok, readRecord } from "../http";
 type TechPatch = {
   status?: TechStatus;
   reason?: string | null;
-  subcategoryId?: string | null;
+  categoryId?: string | null;
+  subcategoryIds?: string[];
   tags?: { name: string; kind: "topic" | "vendor" | "project" }[];
 };
 
@@ -158,11 +159,20 @@ async function readPatch(
     const reason = typeof body.reason === "string" ? body.reason.trim() : null;
     patch.reason = reason === null || reason.length === 0 ? null : reason;
   }
-  if ("subcategoryId" in body && body.subcategoryId !== undefined) {
-    if (body.subcategoryId !== null && typeof body.subcategoryId !== "string") {
+  if ("categoryId" in body && body.categoryId !== undefined) {
+    if (body.categoryId !== null && typeof body.categoryId !== "string") {
+      return { ok: false, message: "大分類の形が不正です" };
+    }
+    patch.categoryId = body.categoryId;
+  }
+  if ("subcategoryIds" in body && body.subcategoryIds !== undefined) {
+    if (
+      !Array.isArray(body.subcategoryIds) ||
+      body.subcategoryIds.some((id) => typeof id !== "string")
+    ) {
       return { ok: false, message: "小分類の形が不正です" };
     }
-    patch.subcategoryId = body.subcategoryId;
+    patch.subcategoryIds = body.subcategoryIds;
   }
   if ("tags" in body && body.tags !== undefined) {
     if (!Array.isArray(body.tags)) {

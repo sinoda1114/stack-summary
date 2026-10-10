@@ -10,7 +10,8 @@ export type TechDetail = {
   statusBy: "user" | "model";
   reason: string | null;
   reasonBy: "user" | "model" | null;
-  subcategoryId: string | null;
+  categoryId: string | null;
+  subcategoryIds: string[];
   classifiedBy: "user" | "model" | null;
   updatedAt: string;
   aliases: { key: string; label: string; source: "user" | "model" }[];
@@ -39,7 +40,7 @@ export async function loadTechDetail(
 ): Promise<TechDetail | null> {
   const tech = await db
     .prepare(
-      `SELECT id, name, status, status_by, reason, reason_by, subcategory_id, classified_by, updated_at
+      `SELECT id, name, status, status_by, reason, reason_by, category_id, classified_by, updated_at
        FROM techs WHERE id = ?`,
     )
     .bind(id)
@@ -50,13 +51,23 @@ export async function loadTechDetail(
       status_by: string;
       reason: string | null;
       reason_by: string | null;
-      subcategory_id: string | null;
+      category_id: string | null;
       classified_by: string | null;
       updated_at: string;
     }>();
   if (tech === null || !isTechStatus(tech.status)) {
     return null;
   }
+  const subcategories = await db
+    .prepare(
+      `SELECT ts.subcategory_id
+       FROM tech_subcategories ts
+       JOIN subcategories s ON s.id = ts.subcategory_id
+       WHERE ts.tech_id = ? AND s.category_id = ?
+       ORDER BY s.sort_order, s.name`,
+    )
+    .bind(id, tech.category_id)
+    .all<{ subcategory_id: string }>();
   const aliases = await db
     .prepare(
       `SELECT alias_key, alias, source FROM tech_aliases
@@ -97,7 +108,8 @@ export async function loadTechDetail(
     statusBy: tech.status_by === "user" ? "user" : "model",
     reason: tech.reason,
     reasonBy: tech.reason_by === "user" || tech.reason_by === "model" ? tech.reason_by : null,
-    subcategoryId: tech.subcategory_id,
+    categoryId: tech.category_id,
+    subcategoryIds: subcategories.results.map((row) => row.subcategory_id),
     classifiedBy:
       tech.classified_by === "user" || tech.classified_by === "model"
         ? tech.classified_by
@@ -125,26 +137,32 @@ export async function patchTech(
   patch: {
     status?: TechStatus;
     reason?: string | null;
-    subcategoryId?: string | null;
+    categoryId?: string | null;
+    subcategoryIds?: string[];
     tags?: { name: string; kind: "topic" | "vendor" | "project" }[];
   },
   now: string,
 ): Promise<boolean> {
   const current = await db
-    .prepare("SELECT id FROM techs WHERE id = ?")
+    .prepare("SELECT id, category_id FROM techs WHERE id = ?")
     .bind(id)
-    .first<{ id: string }>();
+    .first<{ id: string; category_id: string | null }>();
   if (current === null) {
     return false;
   }
-  if (patch.subcategoryId !== undefined && patch.subcategoryId !== null) {
-    const subcategory = await db
-      .prepare("SELECT id FROM subcategories WHERE id = ?")
-      .bind(patch.subcategoryId)
+  const nextCategory =
+    patch.categoryId !== undefined ? patch.categoryId : current.category_id;
+  if (patch.categoryId !== undefined && patch.categoryId !== null) {
+    const category = await db
+      .prepare("SELECT id FROM categories WHERE id = ?")
+      .bind(patch.categoryId)
       .first();
-    if (subcategory === null) {
-      throw new Error("小分類が見つかりません");
+    if (category === null) {
+      throw new Error("大分類が見つかりません");
     }
+  }
+  if (patch.subcategoryIds !== undefined) {
+    await assertSubcategoriesInCategory(db, nextCategory, patch.subcategoryIds);
   }
   const assignments: string[] = ["updated_at = ?"];
   const values: (string | null)[] = [now];
@@ -156,15 +174,44 @@ export async function patchTech(
     assignments.push("reason = ?", "reason_by = ?");
     values.push(patch.reason, patch.reason === null ? null : "user");
   }
-  if (patch.subcategoryId !== undefined) {
-    assignments.push("subcategory_id = ?", "classified_by = 'user'");
-    values.push(patch.subcategoryId);
+  if (patch.categoryId !== undefined || patch.subcategoryIds !== undefined) {
+    assignments.push("category_id = ?", "classified_by = 'user'");
+    values.push(nextCategory);
   }
   const statements: D1PreparedStatement[] = [
     db
       .prepare(`UPDATE techs SET ${assignments.join(", ")} WHERE id = ?`)
       .bind(...values, id),
   ];
+  if (patch.subcategoryIds !== undefined) {
+    statements.push(
+      db.prepare("DELETE FROM tech_subcategories WHERE tech_id = ?").bind(id),
+    );
+    for (const subcategoryId of patch.subcategoryIds) {
+      statements.push(
+        db
+          .prepare(
+            `INSERT INTO tech_subcategories (tech_id, subcategory_id)
+             VALUES (?, ?)`,
+          )
+          .bind(id, subcategoryId),
+      );
+    }
+  } else if (patch.categoryId !== undefined) {
+    statements.push(
+      nextCategory === null
+        ? db.prepare("DELETE FROM tech_subcategories WHERE tech_id = ?").bind(id)
+        : db
+            .prepare(
+              `DELETE FROM tech_subcategories
+               WHERE tech_id = ?
+                 AND subcategory_id IN (
+                   SELECT id FROM subcategories WHERE category_id <> ?
+                 )`,
+            )
+            .bind(id, nextCategory),
+    );
+  }
   if (patch.tags !== undefined) {
     const tagIds: string[] = [];
     for (const tag of patch.tags) {
@@ -194,6 +241,32 @@ export async function patchTech(
   return true;
 }
 
+async function assertSubcategoriesInCategory(
+  db: D1Database,
+  categoryId: string | null,
+  subcategoryIds: readonly string[],
+): Promise<void> {
+  if (subcategoryIds.length === 0) {
+    return;
+  }
+  if (categoryId === null) {
+    throw new Error("小分類を付ける大分類がありません");
+  }
+  const marks = subcategoryIds.map(() => "?").join(", ");
+  const found = await db
+    .prepare(
+      `SELECT id, category_id FROM subcategories WHERE id IN (${marks})`,
+    )
+    .bind(...subcategoryIds)
+    .all<{ id: string; category_id: string }>();
+  if (found.results.length !== new Set(subcategoryIds).size) {
+    throw new Error("小分類が見つかりません");
+  }
+  if (found.results.some((row) => row.category_id !== categoryId)) {
+    throw new Error("小分類がこの大分類に属しません");
+  }
+}
+
 export async function loadSubcategoryComparison(db: D1Database, id: string) {
   const subcategory = await db
     .prepare(
@@ -212,7 +285,8 @@ export async function loadSubcategoryComparison(db: D1Database, id: string) {
       `SELECT t.id, t.name, t.status, t.reason, t.updated_at,
               (SELECT COUNT(*) FROM memo_techs mt WHERE mt.tech_id = t.id) AS memo_count
        FROM techs t
-       WHERE t.subcategory_id = ?
+       JOIN tech_subcategories ts ON ts.tech_id = t.id
+       WHERE ts.subcategory_id = ?
        ORDER BY t.name`,
     )
     .bind(id)

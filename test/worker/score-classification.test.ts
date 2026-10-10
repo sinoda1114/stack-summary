@@ -78,6 +78,27 @@ describe("分類の正答率", () => {
     expect(score.meetsProvisionalTargets).toBe(true);
   });
 
+  it("小分類が複数でも、順が違えば同じ組として当たる", () => {
+    const samples: EvalSample[] = [
+      {
+        name: "Hono",
+        context: "ルータ",
+        expected: {
+          categoryId: "backend",
+          subcategoryId: null,
+          subcategoryIds: ["edge", "framework"],
+        },
+        predicted: {
+          categoryId: "backend",
+          subcategoryId: null,
+          subcategoryIds: ["framework", "edge"],
+        },
+      },
+    ];
+    const score = scoreClassification(samples);
+    expect(score.subcategoryHits).toBe(1);
+  });
+
   it("サンプルの形が違うと採点しない", () => {
     expect(parseEvalSamples({ samples: [] })).toEqual({
       ok: true,
