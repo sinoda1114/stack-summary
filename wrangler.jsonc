@@ -21,6 +21,13 @@
     "required": ["OWNER_EMAIL", "GEMINI_API_KEY"]
   },
   // 段階 2 はローカル D1。リモートの database_id は本番配置の前に置く。
+  "workflows": [
+    {
+      "name": "stack-summary-import",
+      "binding": "IMPORT_WORKFLOW",
+      "class_name": "ImportWorkflow"
+    }
+  ],
   "d1_databases": [
     {
       "binding": "DB",

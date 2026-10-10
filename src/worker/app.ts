@@ -1,6 +1,8 @@
 import { Hono } from "hono";
 import { fail, ok } from "./http";
 import { accessAuth } from "./middleware/access-auth";
+import { originCheck } from "./middleware/origin-check";
+import { registerImportRoutes } from "./routes/imports";
 
 export const app = new Hono<{ Bindings: Env }>();
 
@@ -12,9 +14,13 @@ app.use("*", async (c, next) => {
   return;
 });
 
+app.use("/api/*", originCheck);
+
 app.get("/api/health", (c) => {
   return c.json(ok({ ok: true }));
 });
+
+registerImportRoutes(app);
 
 app.notFound((c) => {
   return c.json(fail("not_found", "見つかりません"), 404);

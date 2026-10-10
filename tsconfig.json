@@ -24,5 +24,6 @@
     "scripts/**/*.ts",
     "vitest.config.ts",
     "worker-configuration.d.ts"
-  ]
+  ],
+  "exclude": ["src/client/**"]
 }
