@@ -86,11 +86,13 @@ describe("画面ナビ", () => {
 
     const menu = screen.getByRole("button", { name: "メニューを開く" });
     await userEvent.click(menu);
-    expect(document.body.style.overflow).toBe("hidden");
-    await userEvent.click(screen.getByRole("button", { name: "メニューを閉じる" }));
+    const scrim = document.querySelector(".drawer-scrim");
+    if (scrim === null) {
+      throw new Error("背景がありません");
+    }
+    await userEvent.click(scrim);
     expect(document.querySelector("aside.sidebar")).toBeNull();
     expect(menu.getAttribute("aria-expanded")).toBe("false");
-    expect(document.body.style.overflow).toBe("");
 
     await userEvent.click(menu);
     await userEvent.click(screen.getByRole("link", { name: "メモ" }));
