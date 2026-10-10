@@ -65,6 +65,7 @@ describe("画面ナビ", () => {
     const menu = screen.getByRole("button", { name: "メニューを開く" });
     expect(menu.textContent).toContain("☰");
     expect(menu.getAttribute("aria-expanded")).toBe("false");
+    expect(document.querySelector(".mobile-title")?.textContent).toBe("全体図");
 
     await userEvent.click(menu);
 
@@ -83,24 +84,37 @@ describe("画面ナビ", () => {
     stubMobile();
     renderNav();
 
-    await userEvent.click(screen.getByRole("button", { name: "メニューを開く" }));
+    const menu = screen.getByRole("button", { name: "メニューを開く" });
+    await userEvent.click(menu);
+    expect(document.body.style.overflow).toBe("hidden");
     await userEvent.click(screen.getByRole("button", { name: "メニューを閉じる" }));
     expect(document.querySelector("aside.sidebar")).toBeNull();
+    expect(menu.getAttribute("aria-expanded")).toBe("false");
+    expect(document.body.style.overflow).toBe("");
 
-    await userEvent.click(screen.getByRole("button", { name: "メニューを開く" }));
+    await userEvent.click(menu);
     await userEvent.click(screen.getByRole("link", { name: "メモ" }));
     expect(document.querySelector("aside.sidebar")).toBeNull();
+    expect(menu.getAttribute("aria-expanded")).toBe("false");
+    expect(document.querySelector(".mobile-title")?.textContent).toBe("メモ");
 
-    await userEvent.click(screen.getByRole("button", { name: "メニューを開く" }));
+    await userEvent.click(menu);
     await userEvent.keyboard("{Escape}");
     expect(document.querySelector("aside.sidebar")).toBeNull();
+    expect(menu.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("狭い幅では経路に応じた画面名を出す", () => {
+    stubMobile();
+    renderNav("/techs/hono");
+    expect(document.querySelector(".mobile-title")?.textContent).toBe("技術");
   });
 });
 
-function renderNav(): void {
+function renderNav(path = "/"): void {
   render(
     <MantineProvider>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[path]}>
         <AppNav />
       </MemoryRouter>
     </MantineProvider>,

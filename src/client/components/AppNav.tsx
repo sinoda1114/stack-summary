@@ -1,13 +1,30 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useMediaQuery } from "@mantine/hooks";
-import { Link, NavLink } from "react-router";
+import { Link, NavLink, useLocation } from "react-router";
 
 const NARROW_NAV_QUERY = "(max-width: 768px)";
+
+const SCREEN_NAMES: { name: string; match: (pathname: string) => boolean }[] = [
+  { name: "全体図", match: (pathname) => pathname === "/" },
+  { name: "関係", match: (pathname) => pathname === "/relations" },
+  { name: "取り込み", match: (pathname) => pathname === "/imports" },
+  { name: "メモ", match: (pathname) => pathname === "/memos" || pathname.startsWith("/memos/") },
+  { name: "受け箱", match: (pathname) => pathname === "/inbox" },
+  { name: "分類", match: (pathname) => pathname === "/taxonomy" },
+  { name: "書き出し", match: (pathname) => pathname === "/export" },
+  { name: "技術", match: (pathname) => pathname.startsWith("/techs/") },
+  { name: "小分類", match: (pathname) => pathname.startsWith("/subcategories/") },
+];
+
+function screenName(pathname: string): string {
+  return SCREEN_NAMES.find((item) => item.match(pathname))?.name ?? "全体図";
+}
 
 type NavIconName = "grid" | "relations" | "import" | "memo" | "inbox" | "taxonomy" | "export";
 
 export function AppNav() {
   const mobile = useMediaQuery(NARROW_NAV_QUERY, false, { getInitialValueInEffect: false });
+  const { pathname } = useLocation();
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLElement>(null);
@@ -35,10 +52,23 @@ export function AppNav() {
   }, [open]);
 
   useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
     if (!open) {
       return;
     }
+    const root = document.documentElement;
+    const previousRoot = root.style.overflow;
+    const previousBody = document.body.style.overflow;
+    root.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
     drawerRef.current?.focus();
+    return () => {
+      root.style.overflow = previousRoot;
+      document.body.style.overflow = previousBody;
+    };
   }, [open]);
 
   function close(): void {
@@ -72,6 +102,7 @@ export function AppNav() {
         >
           <span aria-hidden="true">☰</span>
         </button>
+        <p className="mobile-title">{screenName(pathname)}</p>
       </header>
       {open ? (
         <>
