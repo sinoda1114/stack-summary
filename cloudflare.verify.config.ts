@@ -10,8 +10,7 @@ export default defineConfig({
     workersDev: false,
     previewUrls: false,
     limits: {
-      cpuMs: 300_000,
-      subrequests: 10_000,
+      subrequests: 1000,
     },
     observability: {
       enabled: true,
