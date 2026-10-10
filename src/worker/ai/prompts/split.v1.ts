@@ -2,14 +2,31 @@ import { z } from "zod";
 
 export const SPLIT_PROMPT_VERSION = "split.v1";
 
-export const splitMemoSchema = z.object({
+export function isCalendarDate(value: string): boolean {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (match === null) {
+    return false;
+  }
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
+}
+
+export const splitMemoSchema = z.strictObject({
   memos: z.array(
-    z.object({
+    z.strictObject({
       title: z.string(),
       body: z.string(),
       memoDate: z
         .string()
         .regex(/^\d{4}-\d{2}-\d{2}$/)
+        .refine(isCalendarDate)
         .nullable(),
       urls: z.array(z.string()),
     }),

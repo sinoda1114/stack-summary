@@ -105,6 +105,93 @@ describe("Gemini の指示とモック", () => {
     expect(extractSystemPrompt).not.toContain("技術一覧");
   });
 
+  it("余計な項目と実在しない日付は 1 回だけ再試行する", async () => {
+    const extra = JSON.stringify({
+      memos: [
+        {
+          title: "Hono",
+          body: "本文",
+          memoDate: "2026-10-10",
+          urls: [],
+          extra: true,
+        },
+      ],
+      skippedCount: 0,
+    });
+    const badDate = JSON.stringify({
+      memos: [
+        {
+          title: "Hono",
+          body: "本文",
+          memoDate: "2026-02-30",
+          urls: [],
+        },
+      ],
+      skippedCount: 0,
+    });
+    const nested = JSON.stringify({
+      techs: [
+        {
+          name: "Hono",
+          relation: "subject",
+          aliases: [],
+          tags: [{ name: "Web", kind: "topic", extra: true }],
+        },
+      ],
+    });
+    const goodSplit = JSON.stringify({
+      memos: [
+        {
+          title: "Hono",
+          body: "本文",
+          memoDate: "2026-10-10",
+          urls: [],
+        },
+      ],
+      skippedCount: 0,
+    });
+    const goodExtract = JSON.stringify({
+      techs: [
+        {
+          name: "Hono",
+          relation: "subject",
+          aliases: [],
+          tags: [{ name: "Web", kind: "topic" }],
+        },
+      ],
+    });
+    expect(splitMemoSchema.safeParse(JSON.parse(badDate)).success).toBe(false);
+    expect(splitMemoSchema.safeParse(JSON.parse(goodSplit)).success).toBe(true);
+    expect(extractTechSchema.safeParse(JSON.parse(nested)).success).toBe(false);
+    expect(
+      classifySchema.safeParse({
+        kind: "unclassified",
+        confidence: 0.2,
+        extra: true,
+      }).success,
+    ).toBe(false);
+
+    const retriedSplit = scripted([extra, goodSplit]);
+    await expect(
+      generateValidated(retriedSplit.generator, request(), splitMemoSchema),
+    ).resolves.toMatchObject({ skippedCount: 0 });
+    expect(retriedSplit.requests).toHaveLength(2);
+
+    const retriedDate = scripted([badDate, goodSplit]);
+    await expect(
+      generateValidated(retriedDate.generator, request(), splitMemoSchema),
+    ).resolves.toMatchObject({
+      memos: [expect.objectContaining({ memoDate: "2026-10-10" })],
+    });
+    expect(retriedDate.requests).toHaveLength(2);
+
+    const retriedExtract = scripted([nested, goodExtract]);
+    await expect(
+      generateValidated(retriedExtract.generator, request(), extractTechSchema),
+    ).resolves.toMatchObject({ techs: [{ name: "Hono" }] });
+    expect(retriedExtract.requests).toHaveLength(2);
+  });
+
   it("不正な JSON は 1 回だけ再試行し、それでも不正なら失敗する", async () => {
     const generator = scripted(["{", "{"]);
     await expect(
@@ -175,6 +262,17 @@ describe("Gemini の指示とモック", () => {
     expect(
       acceptClassification(
         { kind: "new", categoryId: "backend", name: "  ", confidence: 0.4 },
+        input,
+      ),
+    ).toEqual({ kind: "unclassified" });
+    expect(
+      acceptClassification(
+        {
+          kind: "new",
+          categoryId: "backend",
+          name: "\u0085",
+          confidence: 0.4,
+        },
         input,
       ),
     ).toEqual({ kind: "unclassified" });
