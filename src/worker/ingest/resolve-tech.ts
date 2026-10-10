@@ -149,7 +149,7 @@ async function recordMention(
   return { kind: "mention", name, discarded };
 }
 
-const CLAIM_ATTEMPTS = 3;
+export const CLAIM_ATTEMPTS = 3;
 
 async function attachTech(
   db: D1Database,
@@ -224,7 +224,7 @@ async function commitAttachment(
         ? [claimTechInsert(db, techId, input.canonical, input.now)]
         : []),
       ...input.plan.aliasesToInsert.map((entry) =>
-        aliasInsert(db, entry, techId),
+        claimAliasInsert(db, entry, techId),
       ),
       linkInsert(db, input.memoId, techId, input.relation),
     ]);
@@ -284,7 +284,7 @@ export async function storedRelation(
   throw new Error("メモと技術の関係を読めませんでした");
 }
 
-function claimTechInsert(
+export function claimTechInsert(
   db: D1Database,
   techId: string,
   entry: AliasEntry,
@@ -299,43 +299,7 @@ function claimTechInsert(
     .bind(techId, entry.label, entry.key, now, now);
 }
 
-export function techInsert(
-  db: D1Database,
-  entry: AliasEntry,
-  now: string,
-  id: string,
-): D1PreparedStatement {
-  return db
-    .prepare(
-      `INSERT INTO techs (
-         id, name, name_key, subcategory_id, status, status_by, created_at, updated_at
-       ) VALUES (?, ?, ?, NULL, 'unrated', 'model', ?, ?)
-       ON CONFLICT(name_key) DO NOTHING`,
-    )
-    .bind(id, entry.label, entry.key, now, now);
-}
-
-export async function createTech(
-  db: D1Database,
-  entry: AliasEntry,
-  now: string,
-): Promise<{ techId: string; created: boolean }> {
-  const id = crypto.randomUUID();
-  const inserted = await techInsert(db, entry, now, id).run();
-  const row = await db
-    .prepare("SELECT id FROM techs WHERE name_key = ?")
-    .bind(entry.key)
-    .first<{ id: string }>();
-  if (row === null) {
-    throw new Error("技術を作成できませんでした");
-  }
-  return {
-    techId: row.id,
-    created: inserted.meta.changes === 1 && row.id === id,
-  };
-}
-
-function aliasInsert(
+export function claimAliasInsert(
   db: D1Database,
   entry: AliasEntry,
   techId: string,
@@ -348,7 +312,7 @@ function aliasInsert(
     .bind(entry.key, entry.label, techId);
 }
 
-function isLostClaim(error: unknown): boolean {
+export function isLostClaim(error: unknown): boolean {
   const text = errorText(error);
   return (
     text.includes("UNIQUE constraint failed: techs.name_key") ||
