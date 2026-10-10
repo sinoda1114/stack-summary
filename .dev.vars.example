@@ -4,3 +4,7 @@ ACCESS_TEAM_DOMAIN=https://example.cloudflareaccess.com
 ACCESS_AUD=replace-me
 OWNER_EMAIL=owner@example.com
 APP_ORIGIN=http://localhost:8787
+GEMINI_API_KEY=replace-me
+GEMINI_MODEL=gemini-flash-latest
+IMPORT_MAX_CHARS=50000
+PROMPT_VERSION=v1

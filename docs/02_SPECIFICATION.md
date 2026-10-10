@@ -2,7 +2,7 @@
 
 - 対象: stack-summary
 - 作成日: 2026-10-10
-- 改訂: 2026-10-10（仕様レビュー判定の「直す」5点と「決めた一文」を手順にした）
+- 改訂: 2026-10-10（仕様レビュー判定の「直す」5点と「決めた一文」を手順にした。利用枠・文字数上限・Workflows は仮値）
 - 関連文書: [01_REQUIREMENTS.md](01_REQUIREMENTS.md) / [03_STRUCTURE.md](03_STRUCTURE.md)
 
 ## 1. アーキテクチャ
@@ -28,7 +28,7 @@
 | 認証 | Cloudflare Access + Worker での JWT 検証（`jose`） | 本人だけを通す。欠落は 403 |
 | API | Hono | ルーティング、入力検証。ルートは資源ごとにファイルを分ける |
 | 入力検証 | Zod | 画面・API・Gemini 出力で共通のスキーマ |
-| 取り込み処理 | Cloudflare Workflows | ステップごとの再試行と進み具合の記録 |
+| 取り込み処理 | Cloudflare Workflows（仮） | ステップごとの再試行と進み具合の記録。仮の見積もりは 1 日 3000 ステップ、呼び出しあたり CPU 10 ミリ秒。Queues の代替は作らない |
 | AI | Gemini API（`@google/genai`、Flash 系） | メモ分割、技術抽出、分類 |
 | データ | D1 | 原文・メモ・技術・分類・好み |
 | 画面 | React + Mantine | 全体図・詳細・取り込み・管理 |
@@ -46,7 +46,7 @@
 | `ACCESS_AUD` | var | Access アプリケーションの AUD タグ |
 | `OWNER_EMAIL` | secret | 利用者本人のメールアドレス。リポジトリに書かない |
 | `APP_ORIGIN` | var | 公開 URL（独自ドメイン） |
-| `IMPORT_MAX_CHARS` | var | 取り込み 1 回の文字数上限（案: 50000） |
+| `IMPORT_MAX_CHARS` | var | 仮として 50000。空、または超えた取り込みは 400 |
 | `PROMPT_VERSION` | var | 指示文の版。分類結果に記録する |
 
 `wrangler` の設定で `workers_dev = false`、`preview_urls = false` とする。この 2 つは到達経路を狭めるだけで、認証の代わりにはしない。JWT が無い `/api` は、届いたリクエストを常に 403 にする（NFR-01）。
@@ -258,7 +258,7 @@ CREATE TABLE memo_tags (
 
 `POST /api/imports` は本文 `{ text, sourceLabel? }` を受け取る。
 
-1. `text` が空、または `IMPORT_MAX_CHARS` を超えたら 400 を返す。超えたときは分けて貼るよう表示する。
+1. `text` が空、または `IMPORT_MAX_CHARS` を超えたら 400 を返す。超えたときは分けて貼るよう表示する。仮の上限は 50000 文字である。
 2. §6.2 で原文を正規化し、SHA-256 を `raw_hash` にする。
 3. 同じ `raw_hash` の `imports` があれば、200 でその行を返す。Workflow は起動しない。Gemini は呼ばない。
 4. 無ければ `imports` を `queued` で挿入し、Workflow を起動して 202 を返す。初回の Workflow インスタンス ID は `imports.id` である。パラメータの `importId` も `imports.id` である。
@@ -279,6 +279,8 @@ CREATE TABLE memo_tags (
 各 `step.do` は再試行上限を 3 回と明示する（`retries.limit: 3`、遅延は指数バックオフ）。未設定の既定 5 回には頼らない。コミット後に応答だけが失われて同じステップが再実行されても、§4.1 の upsert で行は増えない。
 
 再試行を使い切り、または不正な JSON を 1 回再試行したあとも不正なときは、その場で `imports.status = 'failed'` と `error` を書いて終える。失敗を書かずに終了しない。
+
+仮: 取り込みは Cloudflare Workflows を使う。見込む上限は 1 日 3000 ステップ、呼び出しあたり CPU 10 ミリ秒。Queues の代替は作らない。
 
 | ステップ | 処理 | Gemini |
 | --- | --- | --- |
@@ -359,6 +361,7 @@ ON CONFLICT (category_id, name) DO NOTHING;
 - 指示文は `src/worker/ai/prompts/` に版付きで置き、`PROMPT_VERSION` を結果に記録する（NFR-08）。
 - メモ本文に含まれる指示文には従わないよう、指示文の側で明示する。出力は決めた JSON の形以外を受け付けないので、注入されても被害は分類の乱れにとどまる。
 - 抽出の指示には次を含める。主題・比較・言及の判定。返すのは名前、関係、別名候補、タグ候補までで、既存 ID は返さない。新機能は親の製品名を `name` に入れる。会社やプロジェクト群は技術にせずベンダーのタグにする。短い呼び方と正式名は別名で結ぶ。
+- 仮: 利用枠は有料枠。貼り付け全文を Gemini に送る。他人の発言は除かない。無料枠の規約確認は未了。
 
 ### 6.9 再処理
 
