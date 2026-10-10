@@ -3,7 +3,7 @@ import {
   linkInsert,
   planTechResolution,
   storedRelation,
-  techInsert,
+  createTech,
   type TechRelation,
 } from "../ingest/resolve-tech";
 import { aliasInsert } from "./model-annotations";
@@ -55,33 +55,16 @@ export async function promoteMention(
         relation: await storedRelation(db, input.memoId, plan.techId),
       };
     case "create": {
-      const named = await db
-        .prepare("SELECT id FROM techs WHERE name_key = ?")
-        .bind(key)
-        .first<{ id: string }>();
-      if (named !== null) {
-        await db.batch([
-          ...plan.aliasesToInsert.map((alias) => aliasInsert(db, named.id, alias)),
-          linkInsert(db, input.memoId, named.id, "subject"),
-          deleteMention(db, input.memoId, input.name),
-        ]);
-        return {
-          ok: true,
-          techId: named.id,
-          relation: await storedRelation(db, input.memoId, named.id),
-        };
-      }
-      const id = crypto.randomUUID();
+      const created = await createTech(db, entry, input.now);
       await db.batch([
-        techInsert(db, entry, input.now, id),
-        ...plan.aliasesToInsert.map((alias) => aliasInsert(db, id, alias)),
-        linkInsert(db, input.memoId, id, "subject"),
+        ...plan.aliasesToInsert.map((alias) => aliasInsert(db, created.techId, alias)),
+        linkInsert(db, input.memoId, created.techId, "subject"),
         deleteMention(db, input.memoId, input.name),
       ]);
       return {
         ok: true,
-        techId: id,
-        relation: await storedRelation(db, input.memoId, id),
+        techId: created.techId,
+        relation: await storedRelation(db, input.memoId, created.techId),
       };
     }
     default: {

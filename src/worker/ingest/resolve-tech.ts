@@ -315,7 +315,7 @@ export function techInsert(
     .bind(id, entry.label, entry.key, now, now);
 }
 
-async function createTech(
+export async function createTech(
   db: D1Database,
   entry: AliasEntry,
   now: string,
