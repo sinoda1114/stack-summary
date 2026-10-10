@@ -41,8 +41,8 @@
 | 名前 | 種別 | 内容 |
 | --- | --- | --- |
 | `GEMINI_API_KEY` | secret | Gemini の API キー。段階 4 以降 |
-| `GEMINI_MODEL_LIGHT` | var | 軽い処理のモデル名。仮値は `gemini-flash-lite-latest`。技術名の抽出、分類、取り込んだメモと技術への問い合わせ。コードに埋め込まない |
-| `GEMINI_MODEL_HEAVY` | var | 重い処理のモデル名。仮値は `gemini-flash-latest`。メモの分割（推論が要る）。コードに埋め込まない |
+| `GEMINI_MODEL_LIGHT` | var | 生成のうち軽い処理のモデル名。仮値は `gemini-flash-lite-latest`。技術名の抽出と、問い合わせの答えの文。コードに埋め込まない |
+| `GEMINI_MODEL_HEAVY` | var | 生成のうち重い処理のモデル名。仮値は `gemini-flash-latest`。メモの題、本文、日付を作る。コードに埋め込まない |
 | `ACCESS_TEAM_DOMAIN` | var | `https://<team>.cloudflareaccess.com`。末尾スラッシュは付けない |
 | `ACCESS_AUD` | var | Access アプリケーションの AUD タグ |
 | `OWNER_EMAIL` | secret | 利用者本人のメールアドレス。リポジトリに書かない |
@@ -363,7 +363,16 @@ ON CONFLICT (category_id, name) DO NOTHING;
 - 指示文は `src/worker/ai/prompts/` に版付きで置く。分類結果に記録する版は、その指示文ファイルの定数（`classify.v1` など）であり、環境変数では文面を選ばない（NFR-08）。
 - メモ本文に含まれる指示文には従わないよう、指示文の側で明示する。出力は決めた JSON の形以外を受け付けないので、注入されても被害は分類の乱れにとどまる。
 - 抽出の指示には次を含める。主題・比較・言及の判定。返すのは名前、関係、別名候補、タグ候補までで、既存 ID は返さない。新機能は親の製品名を `name` に入れる。会社やプロジェクト群は技術にせずベンダーのタグにする。短い呼び方と正式名は別名で結ぶ。
-- 呼び出しごとにモデルを分ける。分割は `GEMINI_MODEL_HEAVY`（原文の仕分けと日付の読み取りは推論が要る）。抽出、分類、取り込んだメモと技術への問い合わせは `GEMINI_MODEL_LIGHT`（技術名の抜き出し、渡した一覧への振り分け、渡した一覧からの答え）。モデル名はコードに埋め込まず、どちらも仮値である。
+- Gemini の `GEMINI_MODEL_LIGHT` と `GEMINI_MODEL_HEAVY` は生成だけに使う。モデル名はコードに埋め込まず、どちらも仮値である。固定の選択肢から選ぶ処理は Clef の `clef-flash` で、Clef 自体は未実装である。
+
+| 処理 | 担当 | 一言 |
+| --- | --- | --- |
+| メモの分割 | `GEMINI_MODEL_HEAVY` | 原文から題、本文、日付を作る |
+| 技術名の抽出 | `GEMINI_MODEL_LIGHT` | メモから名前、関係、別名、タグを書く |
+| 問い合わせの答え | `GEMINI_MODEL_LIGHT` | 渡した一覧から答えの文を書く |
+| 大分類・小分類 | Clef `clef-flash`（未実装） | 渡した一覧から選ぶ。未接続のあいだは生成用の軽いモデルを渡している |
+| 完全一致でない名寄せ | Clef `clef-flash`（未実装） | 候補から同じ技術を選ぶ。完全一致の別名キーはアプリの照合のまま |
+| チャットの質問の振り分け | Clef `clef-flash`（未実装） | 質問の行き先を決めた選択肢から選ぶ。画面は作らない |
 - 仮: 利用枠は有料枠。貼り付け全文を Gemini に送る。他人の発言は除かない。無料枠の規約確認は未了。
 
 ### 6.9 再処理
@@ -419,7 +428,7 @@ ON CONFLICT (category_id, name) DO NOTHING;
 | `GET/POST/PATCH /api/categories` | 大分類の一覧・追加・改名・並べ替え |
 | `GET /api/memos?q=&tag=` | メモの検索（`instr` による部分一致。`%` と `_` は文字として扱う） |
 | `GET /api/memos/:id` | メモの詳細（関連技術・言及・似たメモ） |
-| `POST /api/inquiries` | `{ question }`。取り込んだメモと技術の一覧を `GEMINI_MODEL_LIGHT` に渡し、`{ answer }` を返す。チャットの画面は無い。一覧が空ならモデルを呼ばない。質問は 2000 字まで |
+| `POST /api/inquiries` | `{ question }`。答えの文を `GEMINI_MODEL_LIGHT` で書き、`{ answer }` を返す。質問の振り分けはしない。チャットの画面は無い。一覧が空ならモデルを呼ばない。質問は 2000 字まで |
 | `POST /api/imports` | §6.1。新規は 202、同じ原文は 200 |
 | `GET /api/imports` / `GET /api/imports/:id` | 取り込み履歴と進み具合 |
 | `POST /api/imports/:id/reprocess` | §6.9 |

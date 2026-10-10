@@ -60,7 +60,7 @@ export async function splitImport(
 ): Promise<SplitMemoOutput> {
   const row = await requireImport(runner.db, importId);
   return splitMemos(runner.generator, {
-    // 原文の仕分けと日付の読み取りは推論が要るので、重いモデルを使う。
+    // 原文からメモの題、本文、日付を作るので、重いモデルを使う。
     model: runner.modelHeavy,
     text: row.rawText,
   });
@@ -91,7 +91,7 @@ export async function extractSavedMemo(
   memo: SavedMemo,
 ): Promise<ExtractTechOutput> {
   return extractTechs(runner.generator, {
-    // メモから技術名、関係、別名、タグを抜き出すだけなので、軽いモデルを使う。
+    // メモから技術名、関係、別名、タグを書くので、軽いモデルを使う。
     model: runner.modelLight,
     title: memo.title,
     body: memo.body,

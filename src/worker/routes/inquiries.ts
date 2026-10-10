@@ -21,7 +21,7 @@ export function registerInquiryRoutes(app: Hono<{ Bindings: Env }>): void {
     try {
       const context = await loadInquiryContext(c.env.DB);
       const result = await inquireStack(geminiGeneratorFromApiKey(runtime.apiKey), {
-        // 渡したメモと技術の一覧から答えるだけなので、軽いモデルを使う。
+        // 渡した一覧から答えの文を書くので、軽いモデルを使う。
         model: runtime.modelLight,
         question: question.text,
         context,

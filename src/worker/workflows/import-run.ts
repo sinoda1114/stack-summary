@@ -54,7 +54,7 @@ export async function executeImport(
         runner,
         geminiClassifier(
           runner.generator,
-          // 渡した分類一覧へ技術を振り分けるだけなので、軽いモデルを使う。
+          // 大分類・小分類は一覧から選ぶので Clef の clef-flash。Clef は未実装で、この引数はまだ生成用の軽いモデル。
           runner.modelLight,
         ),
         applied.techs,

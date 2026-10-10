@@ -1,4 +1,4 @@
-import { TECH_STATUS_LABELS, isTechStatus } from "../../shared/labels";
+import { TECH_STATUS_LABELS, type TechStatus } from "../../shared/labels";
 
 const MEMO_LIMIT = 40;
 const TECH_LIMIT = 80;
@@ -42,7 +42,7 @@ export async function loadInquiryContext(db: D1Database): Promise<InquiryContext
        LIMIT ?`,
     )
     .bind(TECH_LIMIT + 1)
-    .all<{ name: string; status: string; reason: string | null }>();
+    .all<{ name: string; status: TechStatus; reason: string | null }>();
   return {
     memos: memos.results.slice(0, MEMO_LIMIT).map((memo) => ({
       title: memo.title,
@@ -51,7 +51,7 @@ export async function loadInquiryContext(db: D1Database): Promise<InquiryContext
     })),
     techs: techs.results.slice(0, TECH_LIMIT).map((tech) => ({
       name: tech.name,
-      status: isTechStatus(tech.status) ? TECH_STATUS_LABELS[tech.status] : tech.status,
+      status: TECH_STATUS_LABELS[tech.status],
       reason: tech.reason === null ? null : clip(tech.reason, REASON_LIMIT),
     })),
     memoTruncated: memos.results.length > MEMO_LIMIT,
