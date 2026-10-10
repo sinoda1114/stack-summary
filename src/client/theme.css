@@ -61,7 +61,7 @@ body {
   outline-offset: 3px;
 }
 
-.sheet :where(a):not(:where(.nav-link, .wordmark)) {
+:where(.sheet) a:not(:where(.nav-link, .wordmark)) {
   color: var(--mantine-color-seal-6);
   text-underline-offset: 3px;
 }
