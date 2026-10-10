@@ -22,13 +22,32 @@ function readAccessConfig(env: Env): AccessConfig | null {
   const audience = env.ACCESS_AUD.trim();
   const ownerEmail = env.OWNER_EMAIL.trim();
   if (
-    teamDomain.length === 0 ||
+    !isAccessTeamDomain(teamDomain) ||
     audience.length === 0 ||
     ownerEmail.length === 0
   ) {
     return null;
   }
   return { teamDomain, audience, ownerEmail };
+}
+
+function isAccessTeamDomain(teamDomain: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(teamDomain);
+  } catch {
+    return false;
+  }
+  return (
+    url.protocol === "https:" &&
+    url.username === "" &&
+    url.password === "" &&
+    url.port === "" &&
+    url.pathname === "/" &&
+    url.search === "" &&
+    url.hash === "" &&
+    /^[a-z0-9-]+\.cloudflareaccess\.com$/i.test(url.hostname)
+  );
 }
 
 function jwksFor(teamDomain: string): JWTVerifyGetKey {

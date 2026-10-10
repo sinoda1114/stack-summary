@@ -129,6 +129,19 @@ describe("/api のその他", () => {
     expect(response.status).toBe(403);
   });
 
+  it("大文字の /API も 403", async () => {
+    const response = await call("/API/health");
+    expect(response.status).toBe(403);
+  });
+
+  it("Access 以外のチームドメインは 403", async () => {
+    const response = await call("/api/health", {
+      token: await sign(),
+      env: { ACCESS_TEAM_DOMAIN: "https://evil.example" },
+    });
+    expect(response.status).toBe(403);
+  });
+
   it("認証後に無い経路は 404", async () => {
     const response = await call("/api/missing", { token: await sign() });
     expect(response.status).toBe(404);
