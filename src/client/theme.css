@@ -267,12 +267,18 @@ body {
     padding: 24px 16px 96px;
   }
 
+  .chat-stack {
+    flex: 0 1 auto;
+    overflow: visible;
+  }
+
   .chat-panel {
     max-height: max(0px, calc(100dvh - 15rem - 5.25rem - env(safe-area-inset-bottom, 0px)));
     overflow: auto;
   }
 
   .chat-log {
+    flex: none;
     max-height: none;
   }
 }
