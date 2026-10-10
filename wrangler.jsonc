@@ -15,8 +15,7 @@
     "ACCESS_AUD": "",
     "APP_ORIGIN": "",
     "GEMINI_MODEL": "",
-    "IMPORT_MAX_CHARS": "50000",
-    "PROMPT_VERSION": "v1"
+    "IMPORT_MAX_CHARS": "50000"
   },
   "secrets": {
     "required": ["OWNER_EMAIL", "GEMINI_API_KEY"]

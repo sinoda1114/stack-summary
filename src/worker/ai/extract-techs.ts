@@ -1,4 +1,8 @@
-import { generateValidated, type StructuredGenerator } from "./model-output";
+import {
+  geminiResponseSchema,
+  generateValidated,
+  type StructuredGenerator,
+} from "./model-output";
 import {
   EXTRACT_PROMPT_VERSION,
   extractSystemPrompt,
@@ -18,7 +22,7 @@ export async function extractTechs(
       model: input.model,
       system: extractSystemPrompt,
       contents: JSON.stringify({ title: input.title, body: input.body }),
-      responseJsonSchema: extractTechSchema.toJSONSchema(),
+      responseJsonSchema: geminiResponseSchema(extractTechSchema),
     },
     extractTechSchema,
   );

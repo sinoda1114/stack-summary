@@ -1,4 +1,8 @@
-import { generateValidated, type StructuredGenerator } from "./model-output";
+import {
+  geminiResponseSchema,
+  generateValidated,
+  type StructuredGenerator,
+} from "./model-output";
 import {
   SPLIT_PROMPT_VERSION,
   splitMemoSchema,
@@ -18,7 +22,7 @@ export async function splitMemos(
       model: input.model,
       system: splitSystemPrompt,
       contents: input.text,
-      responseJsonSchema: splitMemoSchema.toJSONSchema(),
+      responseJsonSchema: geminiResponseSchema(splitMemoSchema),
     },
     splitMemoSchema,
   );

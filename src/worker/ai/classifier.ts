@@ -63,7 +63,10 @@ export function acceptClassification(
       ) {
         return { kind: "unclassified" };
       }
-      if (CATCH_ALL_NAMES.has(normalizedSubcategoryName(proposal.name))) {
+      if (
+        proposal.name.trim().length === 0 ||
+        CATCH_ALL_NAMES.has(normalizedSubcategoryName(proposal.name))
+      ) {
         return { kind: "unclassified" };
       }
       return {

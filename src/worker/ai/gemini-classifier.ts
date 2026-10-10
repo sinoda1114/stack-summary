@@ -4,7 +4,11 @@ import {
   type Classifier,
   type ClassifierInput,
 } from "./classifier";
-import { generateValidated, type StructuredGenerator } from "./model-output";
+import {
+  geminiResponseSchema,
+  generateValidated,
+  type StructuredGenerator,
+} from "./model-output";
 import {
   CLASSIFY_PROMPT_VERSION,
   classifyContents,
@@ -26,7 +30,7 @@ export function geminiClassifier(
           model,
           system: classifySystemPrompt,
           contents: classifyContents(input),
-          responseJsonSchema: classifySchema.toJSONSchema(),
+          responseJsonSchema: geminiResponseSchema(classifySchema),
         },
         classifySchema,
       );

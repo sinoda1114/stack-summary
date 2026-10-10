@@ -8,13 +8,17 @@ import { extractTechs } from "../../src/worker/ai/extract-techs";
 import { classifyTech, geminiClassifier } from "../../src/worker/ai/gemini-classifier";
 import {
   InvalidModelOutput,
+  geminiResponseSchema,
   generateValidated,
   type StructuredGenerateRequest,
   type StructuredGenerator,
 } from "../../src/worker/ai/model-output";
-import { classifySystemPrompt } from "../../src/worker/ai/prompts/classify.v1";
+import {
+  classifySchema,
+  classifySystemPrompt,
+} from "../../src/worker/ai/prompts/classify.v1";
 import { extractSystemPrompt, extractTechSchema } from "../../src/worker/ai/prompts/extract.v1";
-import { splitSystemPrompt } from "../../src/worker/ai/prompts/split.v1";
+import { splitMemoSchema, splitSystemPrompt } from "../../src/worker/ai/prompts/split.v1";
 import { splitMemos } from "../../src/worker/ai/split-memos";
 import { importTextProblem, readGeminiRuntime } from "../../src/worker/env";
 import { z } from "zod";
@@ -168,6 +172,12 @@ describe("Gemini の指示とモック", () => {
         input,
       ),
     ).toEqual({ kind: "new", categoryId: "backend", name: "エッジ" });
+    expect(
+      acceptClassification(
+        { kind: "new", categoryId: "backend", name: "  ", confidence: 0.4 },
+        input,
+      ),
+    ).toEqual({ kind: "unclassified" });
 
     const generator = scripted([
       JSON.stringify({
@@ -179,7 +189,14 @@ describe("Gemini の指示とモック", () => {
     await expect(classifyTech(classifier, input)).resolves.toEqual({
       kind: "unclassified",
     });
+    expect(generator.requests[0]?.system).toContain("existing");
     expect(generator.requests[0]?.system).toBe(classifySystemPrompt);
+    const classifyJson = JSON.stringify(geminiResponseSchema(classifySchema));
+    expect(classifyJson).toContain('"enum":["existing"]');
+    expect(classifyJson).not.toContain('"const"');
+    const splitJson = JSON.stringify(geminiResponseSchema(splitMemoSchema));
+    expect(splitJson).toContain('"format":"date"');
+    expect(splitJson).not.toContain("pattern");
     expect(generator.requests[0]?.contents).toContain("provisionalGuidance");
     expect(provisionalCategoryGuidance).toHaveLength(9);
   });
@@ -194,7 +211,6 @@ describe("仮の取り込み上限", () => {
       readGeminiRuntime({
         GEMINI_API_KEY: "key",
         GEMINI_MODEL: " ",
-        PROMPT_VERSION: "v1",
         IMPORT_MAX_CHARS: "50000",
       }),
     ).toBeNull();
@@ -202,13 +218,11 @@ describe("仮の取り込み上限", () => {
       readGeminiRuntime({
         GEMINI_API_KEY: "key",
         GEMINI_MODEL: "gemini-flash",
-        PROMPT_VERSION: "v1",
         IMPORT_MAX_CHARS: "50000",
       }),
     ).toEqual({
       apiKey: "key",
       model: "gemini-flash",
-      promptVersion: "v1",
       importMaxChars: 50000,
     });
   });

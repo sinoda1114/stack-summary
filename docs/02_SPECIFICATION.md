@@ -47,7 +47,8 @@
 | `OWNER_EMAIL` | secret | 利用者本人のメールアドレス。リポジトリに書かない |
 | `APP_ORIGIN` | var | 公開 URL（独自ドメイン） |
 | `IMPORT_MAX_CHARS` | var | 仮として 50000。空、または超えた取り込みは 400 |
-| `PROMPT_VERSION` | var | 指示文の版。分類結果に記録する |
+
+指示文の版は環境変数にしない。記録する値は各ファイルの定数（`split.v1`、`extract.v1`、`classify.v1`）であり、環境変数の文字列では文面を選ばない。
 
 `wrangler` の設定で `workers_dev = false`、`preview_urls = false` とする。この 2 つは到達経路を狭めるだけで、認証の代わりにはしない。JWT が無い `/api` は、届いたリクエストを常に 403 にする（NFR-01）。
 
@@ -357,8 +358,8 @@ ON CONFLICT (category_id, name) DO NOTHING;
 
 ### 6.8 Gemini の呼び出し
 
-- 構造化出力（`responseMimeType: application/json` と `responseSchema`）を使い、返った JSON を Zod で検証する。不正なら 1 回だけ再試行し、それでも不正なら、そのステップを失敗として `imports.status = 'failed'` と `error` を書く（NFR-04、§6.3）。
-- 指示文は `src/worker/ai/prompts/` に版付きで置き、`PROMPT_VERSION` を結果に記録する（NFR-08）。
+- 構造化出力（`responseMimeType: application/json` と `responseJsonSchema`）を使い、返った JSON を Zod で検証する。種別は JSON Schema の `enum` で渡す。日付は `format: date` で渡す。不正なら 1 回だけ再試行し、それでも不正なら、そのステップを失敗として `imports.status = 'failed'` と `error` を書く（NFR-04、§6.3）。
+- 指示文は `src/worker/ai/prompts/` に版付きで置く。分類結果に記録する版は、その指示文ファイルの定数（`classify.v1` など）であり、環境変数では文面を選ばない（NFR-08）。
 - メモ本文に含まれる指示文には従わないよう、指示文の側で明示する。出力は決めた JSON の形以外を受け付けないので、注入されても被害は分類の乱れにとどまる。
 - 抽出の指示には次を含める。主題・比較・言及の判定。返すのは名前、関係、別名候補、タグ候補までで、既存 ID は返さない。新機能は親の製品名を `name` に入れる。会社やプロジェクト群は技術にせずベンダーのタグにする。短い呼び方と正式名は別名で結ぶ。
 - 仮: 利用枠は有料枠。貼り付け全文を Gemini に送る。他人の発言は除かない。無料枠の規約確認は未了。

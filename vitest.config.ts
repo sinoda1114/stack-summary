@@ -23,7 +23,6 @@ export default defineConfig({
             GEMINI_API_KEY: "test-gemini-key",
             GEMINI_MODEL: "test-model",
             IMPORT_MAX_CHARS: "50000",
-            PROMPT_VERSION: "v1",
             TEST_MIGRATIONS: migrations,
           },
         },

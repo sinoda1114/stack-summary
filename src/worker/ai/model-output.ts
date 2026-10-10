@@ -1,5 +1,33 @@
 import type { ZodType } from "zod";
 
+const MEMO_DATE_PATTERN = String.raw`^\d{4}-\d{2}-\d{2}$`;
+
+export function geminiResponseSchema(schema: ZodType): unknown {
+  return adaptGeminiSchema(schema.toJSONSchema());
+}
+
+function adaptGeminiSchema(node: unknown): unknown {
+  if (Array.isArray(node)) {
+    return node.map((item) => adaptGeminiSchema(item));
+  }
+  if (typeof node !== "object" || node === null) {
+    return node;
+  }
+  const record: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(node)) {
+    record[key] = adaptGeminiSchema(value);
+  }
+  if (typeof record.const === "string") {
+    record.enum = [record.const];
+    delete record.const;
+  }
+  if (record.pattern === MEMO_DATE_PATTERN) {
+    delete record.pattern;
+    record.format = "date";
+  }
+  return record;
+}
+
 export class InvalidModelOutput extends Error {
   constructor(message = "モデルの出力が不正です") {
     super(message);

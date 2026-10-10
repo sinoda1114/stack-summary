@@ -8,18 +8,18 @@ export const CLASSIFY_PROMPT_VERSION = "classify.v1";
 
 export const classifySchema = z.discriminatedUnion("kind", [
   z.object({
-    kind: z.literal("existing"),
+    kind: z.enum(["existing"]),
     subcategoryId: z.string(),
     confidence: z.number(),
   }),
   z.object({
-    kind: z.literal("new"),
+    kind: z.enum(["new"]),
     categoryId: z.string(),
     name: z.string(),
     confidence: z.number(),
   }),
   z.object({
-    kind: z.literal("unclassified"),
+    kind: z.enum(["unclassified"]),
     confidence: z.number(),
   }),
 ]);
@@ -32,6 +32,7 @@ export const classifySystemPrompt = [
   "大分類は渡した一覧からしか選ばない。新しい大分類は作らない。",
   "同じ小分類の技術同士が、どちらにするかと比べられる関係になるように選ぶ。",
   "新しい小分類を作る前に、既存の小分類で言い換えられないか確認する。",
+  "kind は existing、new、unclassified のいずれかにする。",
   "その他のような寄せ集めは作らない。決めきれなければ kind を unclassified にする。",
   "確信度は報告するが、それだけで分類を拒否しない。",
 ].join("\n");

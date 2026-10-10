@@ -16,24 +16,20 @@ export function importTextProblem(
 export type GeminiRuntime = {
   apiKey: string;
   model: string;
-  promptVersion: string;
   importMaxChars: number;
 };
 
 export function readGeminiRuntime(env: {
   GEMINI_API_KEY: string;
   GEMINI_MODEL: string;
-  PROMPT_VERSION: string;
   IMPORT_MAX_CHARS: string;
 }): GeminiRuntime | null {
   const apiKey = env.GEMINI_API_KEY.trim();
   const model = env.GEMINI_MODEL.trim();
-  const promptVersion = env.PROMPT_VERSION.trim();
   const maxCharsText = env.IMPORT_MAX_CHARS.trim();
   if (
     apiKey.length === 0 ||
     model.length === 0 ||
-    promptVersion.length === 0 ||
     !/^[1-9][0-9]*$/.test(maxCharsText)
   ) {
     return null;
@@ -42,5 +38,5 @@ export function readGeminiRuntime(env: {
   if (!Number.isSafeInteger(importMaxChars)) {
     return null;
   }
-  return { apiKey, model, promptVersion, importMaxChars };
+  return { apiKey, model, importMaxChars };
 }
