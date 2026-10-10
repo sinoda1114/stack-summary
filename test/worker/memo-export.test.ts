@@ -263,7 +263,7 @@ describe("メモ検索と格上げと書き出し", () => {
     const markdown = exportMarkdown(bundle);
     expect(markdown).toContain("## memos");
     expect(markdown).toContain("## tech_aliases");
-    expect(markdown).toContain("body=原文の本文");
+    expect(markdown).toContain('"body":"原文の本文"');
     expect(markdown).toContain("## subcategories");
     expect(markdown).toContain("（行なし）");
 

@@ -5,17 +5,17 @@ import { fail, ok } from "../http";
 export function registerMemoRoutes(app: Hono<{ Bindings: Env }>): void {
   app.get("/api/memos", async (c) => {
     const cursorText = c.req.query("cursor");
-    if (
-      cursorText !== undefined &&
-      cursorText.length > 0 &&
-      parseMemoSearchCursor(cursorText) === null
-    ) {
+    const cursor =
+      cursorText === undefined || cursorText.length === 0
+        ? null
+        : parseMemoSearchCursor(cursorText);
+    if (cursorText !== undefined && cursorText.length > 0 && cursor === null) {
       return c.json(fail("invalid", "検索の続きが不正です"), 400);
     }
     const page = await searchMemos(c.env.DB, {
       q: c.req.query("q") ?? "",
       tag: c.req.query("tag") ?? "",
-      cursor: cursorText ?? null,
+      cursor,
     });
     return c.json(ok(page));
   });
