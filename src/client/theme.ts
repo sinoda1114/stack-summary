@@ -4,57 +4,59 @@ import {
   type MantineColorsTuple,
 } from "@mantine/core";
 
-const seal: MantineColorsTuple = [
-  "#fbf6f3",
-  "#f3e6e1",
-  "#e6cdc4",
-  "#d4a99a",
-  "#c17d6a",
-  "#a85a48",
-  "#9c3b2e",
-  "#7f2f25",
-  "#64261e",
-  "#3e1712",
-];
-
 const moss: MantineColorsTuple = [
-  "#f3f6f1",
-  "#e3eadc",
-  "#c5d4b6",
-  "#a3bb8c",
-  "#7d9a62",
-  "#5c7a45",
-  "#3f5c32",
-  "#314826",
-  "#24361c",
-  "#16210f",
+  "#f1faf5",
+  "#d8f3e4",
+  "#b4e6cc",
+  "#86d4ad",
+  "#4fba86",
+  "#22a066",
+  "#0e7a45",
+  "#0c6840",
+  "#0b5a32",
+  "#0b5a32",
 ];
 
 const ochre: MantineColorsTuple = [
-  "#fbf6ea",
-  "#f3e8cc",
-  "#e6d09a",
-  "#d4b56a",
-  "#c09a42",
-  "#a07c28",
-  "#7d611c",
-  "#624c16",
-  "#483810",
-  "#2c2209",
+  "#fff8ea",
+  "#fff1d6",
+  "#ffe3ad",
+  "#f5ce78",
+  "#e0ae45",
+  "#c48a1a",
+  "#8a5200",
+  "#7a4900",
+  "#6a3d00",
+  "#6a3d00",
 ];
 
 const ash: MantineColorsTuple = [
-  "#f6f4f0",
-  "#e8e4dc",
-  "#d4cec3",
-  "#b7b0a3",
-  "#978f82",
-  "#756e63",
-  "#5c564c",
-  "#47433b",
-  "#332f2a",
-  "#1f1c18",
+  "#f7f8f9",
+  "#eef0f3",
+  "#dde1e6",
+  "#c5ccd3",
+  "#9aa3ad",
+  "#6b7580",
+  "#3e4650",
+  "#343c45",
+  "#2c333a",
+  "#2c333a",
 ];
+
+const accent: MantineColorsTuple = [
+  "#e8f1ff",
+  "#d3e4ff",
+  "#a8c9fb",
+  "#74a6f5",
+  "#3d82ee",
+  "#1565e0",
+  "#0b57d0",
+  "#0847ab",
+  "#063888",
+  "#042864",
+];
+
+const fontFamily = '"IBM Plex Sans JP", "Hiragino Sans", sans-serif';
 
 const field = {
   input: {
@@ -64,32 +66,38 @@ const field = {
   label: {
     fontWeight: 500,
     marginBottom: 6,
-    color: "var(--mantine-color-ash-6)",
+    color: "var(--stack-dimmed)",
   },
 };
 
 export const theme = createTheme({
-  primaryColor: "seal",
+  primaryColor: "accent",
   primaryShade: 6,
-  black: "#1c1915",
-  white: "#faf7f2",
-  fontFamily: '"Zen Kaku Gothic New", "Hiragino Sans", sans-serif',
+  black: "#14181f",
+  white: "#ffffff",
+  fontFamily,
   headings: {
-    fontFamily: '"Shippori Mincho", "Hiragino Mincho ProN", serif',
-    fontWeight: "500",
+    fontFamily,
+    fontWeight: "600",
     sizes: {
-      h1: { fontSize: "1.75rem", lineHeight: "1.35", fontWeight: "500" },
-      h2: { fontSize: "1.2rem", lineHeight: "1.4", fontWeight: "500" },
+      h1: { fontSize: "1.65rem", lineHeight: "1.3", fontWeight: "600" },
+      h2: { fontSize: "1.05rem", lineHeight: "1.4", fontWeight: "600" },
     },
   },
-  defaultRadius: 2,
-  colors: { seal, moss, ochre, ash },
+  defaultRadius: 16,
+  colors: { accent, moss, ochre, ash },
   components: {
     Button: {
-      defaultProps: { variant: "default", fw: 500 },
+      defaultProps: { variant: "default", fw: 500, radius: 999 },
+    },
+    ActionIcon: {
+      defaultProps: { radius: 999 },
+    },
+    CloseButton: {
+      defaultProps: { radius: 999 },
     },
     Badge: {
-      defaultProps: { tt: "none", radius: 2, fw: 500 },
+      defaultProps: { tt: "none", radius: 999, fw: 500 },
       styles: {
         root: {
           textTransform: "none",
@@ -97,18 +105,23 @@ export const theme = createTheme({
           padding: "4px 10px",
           lineHeight: 1.5,
           cursor: "pointer",
-          letterSpacing: "0.01em",
         },
       },
     },
     Title: {
-      styles: {
-        root: { margin: 0 },
-      },
+      styles: { root: { margin: 0 } },
     },
-    TextInput: { styles: field },
-    Textarea: { styles: field },
-    Select: { styles: field },
+    TextInput: {
+      defaultProps: { radius: 999 },
+      styles: field,
+    },
+    Textarea: {
+      styles: field,
+    },
+    Select: {
+      defaultProps: { radius: 999 },
+      styles: field,
+    },
     Table: {
       defaultProps: {
         withTableBorder: true,
@@ -119,14 +132,14 @@ export const theme = createTheme({
         table: { backgroundColor: "var(--mantine-color-white)" },
         th: {
           fontWeight: 500,
-          color: "var(--mantine-color-ash-6)",
+          color: "var(--stack-dimmed)",
           fontSize: "12px",
-          letterSpacing: "0.06em",
         },
         td: { borderColor: "var(--mantine-color-default-border)" },
       },
     },
     Tabs: {
+      defaultProps: { radius: 999 },
       styles: {
         list: { marginBottom: 4 },
         tab: { fontWeight: 500 },
@@ -148,6 +161,7 @@ export const theme = createTheme({
           backgroundColor: "var(--mantine-color-white)",
           borderColor: "var(--mantine-color-default-border)",
           color: "var(--mantine-color-text)",
+          borderRadius: 8,
         },
       },
     },
@@ -158,11 +172,14 @@ export const cssVariablesResolver: CSSVariablesResolver = (theme) => ({
   variables: {
     "--mantine-font-family": theme.fontFamily,
     "--mantine-font-family-headings": theme.headings.fontFamily,
+    "--stack-dimmed": "#5d6672",
+    "--stack-nav": "#2c3340",
+    "--stack-chip": "#f4f6f9",
   },
   light: {
-    "--mantine-color-body": "#f3efe6",
+    "--mantine-color-body": "#ffffff",
     "--mantine-color-text": theme.black,
-    "--mantine-color-default-border": "#ddd4c4",
+    "--mantine-color-default-border": "#e2e6ed",
   },
   dark: {},
 });
