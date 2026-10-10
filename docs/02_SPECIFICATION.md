@@ -2,7 +2,7 @@
 
 - 対象: stack-summary
 - 作成日: 2026-10-10
-- 改訂: 2026-10-10（仕様レビュー判定の「直す」5点と「決めた一文」を手順にした。利用枠・文字数上限・Workflows は仮値）
+- 改訂: 2026-10-10（仕様レビュー判定の「直す」5点と「決めた一文」を手順にした。利用枠・文字数上限・Workflows は仮値。Gemini のモデルは軽い処理と重い処理に分け、どちらも仮値）
 - 関連文書: [01_REQUIREMENTS.md](01_REQUIREMENTS.md) / [03_STRUCTURE.md](03_STRUCTURE.md)
 
 ## 1. アーキテクチャ
@@ -29,7 +29,7 @@
 | API | Hono | ルーティング、入力検証。ルートは資源ごとにファイルを分ける |
 | 入力検証 | Zod | 画面・API・Gemini 出力で共通のスキーマ |
 | 取り込み処理 | Cloudflare Workflows（仮） | ステップごとの再試行と進み具合の記録。仮の見積もりは 1 日 3000 ステップ、呼び出しあたり CPU 10 ミリ秒。Queues の代替は作らない |
-| AI | Gemini API（`@google/genai`、Flash 系） | メモ分割、技術抽出、分類 |
+| AI | Gemini API（`@google/genai`、Flash 系） | メモ分割、技術抽出、分類、メモと技術への問い合わせ |
 | データ | D1 | 原文・メモ・技術・分類・好み |
 | 画面 | React + Mantine | 全体図・詳細・取り込み・管理 |
 | ビルド | Vite + `@cloudflare/vite-plugin` | 画面と Worker をまとめてビルド |
@@ -41,7 +41,8 @@
 | 名前 | 種別 | 内容 |
 | --- | --- | --- |
 | `GEMINI_API_KEY` | secret | Gemini の API キー。段階 4 以降 |
-| `GEMINI_MODEL` | var | 使うモデル名（Flash 系）。コードに埋め込まない |
+| `GEMINI_MODEL_LIGHT` | var | 生成のうち軽い処理のモデル名。仮値は `gemini-flash-lite-latest`。技術名の抽出と、問い合わせの答えの文。コードに埋め込まない |
+| `GEMINI_MODEL_HEAVY` | var | 生成のうち重い処理のモデル名。仮値は `gemini-flash-latest`。メモの題、本文、日付を作る。コードに埋め込まない |
 | `ACCESS_TEAM_DOMAIN` | var | `https://<team>.cloudflareaccess.com`。末尾スラッシュは付けない |
 | `ACCESS_AUD` | var | Access アプリケーションの AUD タグ |
 | `OWNER_EMAIL` | secret | 利用者本人のメールアドレス。リポジトリに書かない |
@@ -362,6 +363,16 @@ ON CONFLICT (category_id, name) DO NOTHING;
 - 指示文は `src/worker/ai/prompts/` に版付きで置く。分類結果に記録する版は、その指示文ファイルの定数（`classify.v1` など）であり、環境変数では文面を選ばない（NFR-08）。
 - メモ本文に含まれる指示文には従わないよう、指示文の側で明示する。出力は決めた JSON の形以外を受け付けないので、注入されても被害は分類の乱れにとどまる。
 - 抽出の指示には次を含める。主題・比較・言及の判定。返すのは名前、関係、別名候補、タグ候補までで、既存 ID は返さない。新機能は親の製品名を `name` に入れる。会社やプロジェクト群は技術にせずベンダーのタグにする。短い呼び方と正式名は別名で結ぶ。
+- Gemini の `GEMINI_MODEL_LIGHT` と `GEMINI_MODEL_HEAVY` は生成だけに使う。モデル名はコードに埋め込まず、どちらも仮値である。固定の選択肢から選ぶ処理は Clef の `clef-flash` で、Clef 自体は未実装である。
+
+| 処理 | 担当 | 一言 |
+| --- | --- | --- |
+| メモの分割 | `GEMINI_MODEL_HEAVY` | 原文から題、本文、日付を作る |
+| 技術名の抽出 | `GEMINI_MODEL_LIGHT` | メモから名前、関係、別名、タグを書く |
+| 問い合わせの答え | `GEMINI_MODEL_LIGHT` | 渡した一覧から答えの文を書く |
+| 大分類・小分類 | Clef `clef-flash`（未実装） | 渡した一覧から選ぶ。未接続のあいだは生成用の軽いモデルを渡している |
+| 完全一致でない名寄せ | Clef `clef-flash`（未実装） | 候補から同じ技術を選ぶ。完全一致の別名キーはアプリの照合のまま |
+| チャットの質問の振り分け | Clef `clef-flash`（未実装） | 質問の行き先を決めた選択肢から選ぶ。画面は作らない |
 - 仮: 利用枠は有料枠。貼り付け全文を Gemini に送る。他人の発言は除かない。無料枠の規約確認は未了。
 
 ### 6.9 再処理
@@ -417,6 +428,7 @@ ON CONFLICT (category_id, name) DO NOTHING;
 | `GET/POST/PATCH /api/categories` | 大分類の一覧・追加・改名・並べ替え |
 | `GET /api/memos?q=&tag=` | メモの検索（`instr` による部分一致。`%` と `_` は文字として扱う） |
 | `GET /api/memos/:id` | メモの詳細（関連技術・言及・似たメモ） |
+| `POST /api/inquiries` | `{ question }`。答えの文を `GEMINI_MODEL_LIGHT` で書き、`{ answer }` を返す。質問の振り分けはしない。チャットの画面は無い。一覧が空ならモデルを呼ばない。質問は 2000 字まで |
 | `POST /api/imports` | §6.1。新規は 202、同じ原文は 200 |
 | `GET /api/imports` / `GET /api/imports/:id` | 取り込み履歴と進み具合 |
 | `POST /api/imports/:id/reprocess` | §6.9 |

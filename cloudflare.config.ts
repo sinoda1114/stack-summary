@@ -21,6 +21,8 @@ export default defineConfig({
       ACCESS_AUD: bindings.text(""),
       APP_ORIGIN: bindings.text(""),
       GEMINI_MODEL: bindings.text("gemini-flash-lite-latest"),
+      GEMINI_MODEL_LIGHT: bindings.text("gemini-flash-lite-latest"),
+      GEMINI_MODEL_HEAVY: bindings.text("gemini-flash-latest"),
       IMPORT_MAX_CHARS: bindings.text("50000"),
       PREVIEW_OPEN: bindings.text("1"),
       DB: bindings.d1({

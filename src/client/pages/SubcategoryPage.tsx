@@ -1,8 +1,9 @@
 import { Stack, Table, Text, Title } from "@mantine/core";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
-import { TECH_STATUS_LABELS, type TechStatus } from "../../shared/labels";
+import { type TechStatus } from "../../shared/labels";
 import { requestJson } from "../api";
+import { TechStatusMark } from "../components/StatusMark";
 
 type Comparison = {
   name: string;
@@ -46,14 +47,14 @@ export function SubcategoryPage() {
   }, [params.id]);
 
   if (notice !== null && comparison === null) {
-    return <Text p="md">{notice}</Text>;
+    return <Text className="note">{notice}</Text>;
   }
   if (comparison === null) {
-    return <Text p="md">読み込み中</Text>;
+    return <Text className="meta">読み込み中</Text>;
   }
 
   return (
-    <Stack p="md">
+    <Stack gap="lg">
       <Title order={1}>
         {comparison.categoryName} / {comparison.name}
       </Title>
@@ -73,7 +74,9 @@ export function SubcategoryPage() {
               <Table.Td>
                 <Link to={`/techs/${tech.id}`}>{tech.name}</Link>
               </Table.Td>
-              <Table.Td>{TECH_STATUS_LABELS[tech.status]}</Table.Td>
+              <Table.Td>
+                <TechStatusMark status={tech.status} />
+              </Table.Td>
               <Table.Td>{tech.reason ?? ""}</Table.Td>
               <Table.Td>{tech.memoCount}</Table.Td>
               <Table.Td>{tech.updatedAt}</Table.Td>

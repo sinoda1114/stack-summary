@@ -94,17 +94,21 @@ function MemoSearch() {
   }
 
   return (
-    <Stack p="md">
+    <Stack gap="lg">
       <Title order={1}>メモ</Title>
-      {notice === null ? null : <Text>{notice}</Text>}
+      {notice === null ? null : <Text className="note">{notice}</Text>}
       <TextInput label="検索" value={q} onChange={(event) => setQ(event.currentTarget.value)} />
-      {memos.map((memo) => (
-        <Text key={memo.id}>
-          <Link to={`/memos/${memo.id}`}>
-            {memo.memoDate ?? "日付なし"} {memo.title}
-          </Link>
-        </Text>
-      ))}
+      {memos.length === 0 ? null : (
+        <Stack gap={0} className="record-list">
+          {memos.map((memo) => (
+            <Text key={memo.id} className="record-row">
+              <Link to={`/memos/${memo.id}`}>
+                {memo.memoDate ?? "日付なし"} {memo.title}
+              </Link>
+            </Text>
+          ))}
+        </Stack>
+      )}
       {nextCursor === null ? null : (
         <Button onClick={() => void loadMore()}>続きを見る</Button>
       )}
@@ -172,18 +176,20 @@ function MemoDetailView(props: { id: string }) {
   }
 
   if (notice !== null && detail === null) {
-    return <Text p="md">{notice}</Text>;
+    return <Text className="note">{notice}</Text>;
   }
   if (detail === null || detail.id !== props.id) {
-    return <Text p="md">読み込み中</Text>;
+    return <Text className="meta">読み込み中</Text>;
   }
 
   return (
-    <Stack p="md">
+    <Stack gap="lg">
       <Title order={1}>{detail.title}</Title>
-      {notice === null ? null : <Text>{notice}</Text>}
-      <Text>{detail.memoDate ?? "日付なし"}</Text>
-      <MemoText text={detail.body} />
+      {notice === null ? null : <Text className="note">{notice}</Text>}
+      <Text className="meta">{detail.memoDate ?? "日付なし"}</Text>
+      <div className="memo-body">
+        <MemoText text={detail.body} />
+      </div>
       {detail.techs.map((tech) => (
         <Text key={tech.id}>
           <Link to={`/techs/${tech.id}`}>
@@ -192,7 +198,7 @@ function MemoDetailView(props: { id: string }) {
         </Text>
       ))}
       {detail.mentions.map((mention) => (
-        <Stack key={mention.name}>
+        <Stack key={mention.name} className="mention" gap="xs">
           <Text>言及 {mention.name}</Text>
           {mobile ? null : (
             <Button onClick={() => void promote(mention.name)}>格上げ</Button>

@@ -1,4 +1,8 @@
-import { createTheme, type MantineColorsTuple } from "@mantine/core";
+import {
+  createTheme,
+  type CSSVariablesResolver,
+  type MantineColorsTuple,
+} from "@mantine/core";
 
 const seal: MantineColorsTuple = [
   "#fbf6f3",
@@ -52,6 +56,18 @@ const ash: MantineColorsTuple = [
   "#1f1c18",
 ];
 
+const field = {
+  input: {
+    backgroundColor: "var(--mantine-color-white)",
+    borderColor: "var(--mantine-color-default-border)",
+  },
+  label: {
+    fontWeight: 500,
+    marginBottom: 6,
+    color: "var(--mantine-color-ash-6)",
+  },
+};
+
 export const theme = createTheme({
   primaryColor: "seal",
   primaryShade: 6,
@@ -61,12 +77,92 @@ export const theme = createTheme({
   headings: {
     fontFamily: '"Shippori Mincho", "Hiragino Mincho ProN", serif',
     fontWeight: "500",
+    sizes: {
+      h1: { fontSize: "1.75rem", lineHeight: "1.35", fontWeight: "500" },
+      h2: { fontSize: "1.2rem", lineHeight: "1.4", fontWeight: "500" },
+    },
   },
   defaultRadius: 2,
   colors: { seal, moss, ochre, ash },
   components: {
     Button: {
-      defaultProps: { variant: "default" },
+      defaultProps: { variant: "default", fw: 500 },
+    },
+    Badge: {
+      defaultProps: { tt: "none", radius: 2, fw: 500 },
+      styles: {
+        root: {
+          textTransform: "none",
+          height: "auto",
+          padding: "4px 10px",
+          lineHeight: 1.5,
+          cursor: "pointer",
+          letterSpacing: "0.01em",
+        },
+      },
+    },
+    Title: {
+      styles: {
+        root: { margin: 0 },
+      },
+    },
+    TextInput: { styles: field },
+    Textarea: { styles: field },
+    Select: { styles: field },
+    Table: {
+      defaultProps: {
+        withTableBorder: true,
+        verticalSpacing: "sm",
+        horizontalSpacing: "md",
+      },
+      styles: {
+        table: { backgroundColor: "var(--mantine-color-white)" },
+        th: {
+          fontWeight: 500,
+          color: "var(--mantine-color-ash-6)",
+          fontSize: "12px",
+          letterSpacing: "0.06em",
+        },
+        td: { borderColor: "var(--mantine-color-default-border)" },
+      },
+    },
+    Tabs: {
+      styles: {
+        list: { marginBottom: 4 },
+        tab: { fontWeight: 500 },
+        panel: { paddingTop: 22 },
+      },
+    },
+    Accordion: {
+      styles: {
+        item: {
+          backgroundColor: "var(--mantine-color-white)",
+          borderColor: "var(--mantine-color-default-border)",
+        },
+        control: { padding: "14px 16px" },
+      },
+    },
+    Kbd: {
+      styles: {
+        root: {
+          backgroundColor: "var(--mantine-color-white)",
+          borderColor: "var(--mantine-color-default-border)",
+          color: "var(--mantine-color-text)",
+        },
+      },
     },
   },
+});
+
+export const cssVariablesResolver: CSSVariablesResolver = (theme) => ({
+  variables: {
+    "--mantine-font-family": theme.fontFamily,
+    "--mantine-font-family-headings": theme.headings.fontFamily,
+  },
+  light: {
+    "--mantine-color-body": "#f3efe6",
+    "--mantine-color-text": theme.black,
+    "--mantine-color-default-border": "#ddd4c4",
+  },
+  dark: {},
 });

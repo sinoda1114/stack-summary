@@ -38,7 +38,8 @@ export const IMPORT_STEP_RETRY = {
 export type ImportRunner = {
   db: D1Database;
   generator: StructuredGenerator;
-  model: string;
+  modelLight: string;
+  modelHeavy: string;
   now: string;
 };
 
@@ -59,7 +60,8 @@ export async function splitImport(
 ): Promise<SplitMemoOutput> {
   const row = await requireImport(runner.db, importId);
   return splitMemos(runner.generator, {
-    model: runner.model,
+    // 原文からメモの題、本文、日付を作るので、重いモデルを使う。
+    model: runner.modelHeavy,
     text: row.rawText,
   });
 }
@@ -89,7 +91,8 @@ export async function extractSavedMemo(
   memo: SavedMemo,
 ): Promise<ExtractTechOutput> {
   return extractTechs(runner.generator, {
-    model: runner.model,
+    // メモから技術名、関係、別名、タグを書くので、軽いモデルを使う。
+    model: runner.modelLight,
     title: memo.title,
     body: memo.body,
   });

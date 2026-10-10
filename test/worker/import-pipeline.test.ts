@@ -44,17 +44,12 @@ describe("取り込み", () => {
     await insertSubcategory("sub-hono", "backend", "Web フレームワーク");
     const importId = await queue("Hono がよい\nhttps://hono.dev");
     const step = immediateStep();
-    await executeImport(
-      step,
-      runner(
-        scripted([
-          splitBody("Hono がよい https://hono.dev", 1),
-          extractBody("Hono", "subject", ["honojs"], "Cloudflare"),
-          classifyExisting("sub-hono"),
-        ]).generator,
-      ),
-      importId,
-    );
+    const script = scripted([
+      splitBody("Hono がよい https://hono.dev", 1),
+      extractBody("Hono", "subject", ["honojs"], "Cloudflare"),
+      classifyExisting("sub-hono"),
+    ]);
+    await executeImport(step, runner(script.generator), importId);
 
     expect(step.configs.every((config) => config.retries.limit === 3)).toBe(true);
     expect(IMPORT_STEP_RETRY.retries).toEqual({
@@ -88,6 +83,11 @@ describe("取り込み", () => {
       "SELECT alias_key FROM tech_aliases WHERE alias_key = 'honojs'",
     ).first();
     expect(alias).not.toBeNull();
+    expect(script.requests.map((request) => request.model)).toEqual([
+      "test-model-heavy",
+      "test-model-light",
+      "test-model-light",
+    ]);
   });
 
   it("本文があるメモの URL が重なっても同一にせず、似たメモにする", async () => {
@@ -385,7 +385,8 @@ function runner(generator: StructuredGenerator): ImportRunner {
   return {
     db: env.DB,
     generator,
-    model: "test-model",
+    modelLight: "test-model-light",
+    modelHeavy: "test-model-heavy",
     now: NOW,
   };
 }
@@ -405,9 +406,11 @@ function immediateStep(): ImportStepRunner & {
 
 function scripted(responses: readonly string[]): {
   generator: StructuredGenerator;
+  requests: StructuredGenerateRequest[];
 } {
   const requests: StructuredGenerateRequest[] = [];
   return {
+    requests,
     generator: {
       async generate(next: StructuredGenerateRequest): Promise<string> {
         requests.push(next);
