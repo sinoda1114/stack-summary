@@ -1,5 +1,6 @@
 import { Button, Select, Stack, Text, TextInput, Title } from "@mantine/core";
 import { useEffect, useState } from "react";
+import { requestJson } from "../api";
 import { useIsMobile } from "../hooks/useIsMobile";
 
 type CategoryItem = { id: string; name: string; sortOrder: number };
@@ -16,6 +17,7 @@ export function TaxonomyPage() {
   const [name, setName] = useState("");
   const [subName, setSubName] = useState("");
   const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     void reload();
@@ -23,30 +25,45 @@ export function TaxonomyPage() {
 
   async function reload(): Promise<void> {
     const [categoryBody, overview] = await Promise.all([
-      readJson<CategoryItem[]>("/api/categories"),
-      readJson<OverviewCategory[]>("/api/overview"),
+      requestJson<CategoryItem[]>("/api/categories"),
+      requestJson<OverviewCategory[]>("/api/overview"),
     ]);
-    setCategories(categoryBody ?? []);
-    setGroups(overview ?? []);
-    setCategoryId((current) => current ?? categoryBody?.[0]?.id ?? null);
+    if (!categoryBody.success || !overview.success || categoryBody.data === null || overview.data === null) {
+      setNotice(
+        categoryBody.error?.message ?? overview.error?.message ?? "分類を取得できませんでした",
+      );
+      return;
+    }
+    setNotice(null);
+    setCategories(categoryBody.data);
+    setGroups(overview.data);
+    setCategoryId((current) => current ?? categoryBody.data?.[0]?.id ?? null);
   }
 
   async function addCategory(): Promise<void> {
-    await fetch("/api/categories", {
+    const created = await requestJson<{ id: string }>("/api/categories", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ name }),
     });
+    if (!created.success) {
+      setNotice(created.error?.message ?? "大分類を追加できませんでした");
+      return;
+    }
     setName("");
     await reload();
   }
 
   async function renameCategory(id: string, next: string): Promise<void> {
-    await fetch(`/api/categories/${id}`, {
+    const renamed = await requestJson<{ id: string }>(`/api/categories/${id}`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ name: next }),
     });
+    if (!renamed.success) {
+      setNotice(renamed.error?.message ?? "大分類を改名できませんでした");
+      return;
+    }
     await reload();
   }
 
@@ -54,11 +71,15 @@ export function TaxonomyPage() {
     if (categoryId === null) {
       return;
     }
-    await fetch("/api/subcategories", {
+    const created = await requestJson<{ id: string }>("/api/subcategories", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ categoryId, name: subName }),
     });
+    if (!created.success) {
+      setNotice(created.error?.message ?? "小分類を追加できませんでした");
+      return;
+    }
     setSubName("");
     await reload();
   }
@@ -66,6 +87,7 @@ export function TaxonomyPage() {
   return (
     <Stack p="md">
       <Title order={1}>分類</Title>
+      {notice === null ? null : <Text>{notice}</Text>}
       {mobile ? <Text>この幅では管理操作を出しません。</Text> : null}
       {categories.map((category) => (
         <CategoryRow key={category.id} category={category} locked={mobile} onRename={renameCategory} />
@@ -117,8 +139,3 @@ function CategoryRow(props: {
   );
 }
 
-async function readJson<T>(path: string): Promise<T | null> {
-  const response = await fetch(path);
-  const body = (await response.json()) as { success: boolean; data: T | null };
-  return body.success ? body.data : null;
-}

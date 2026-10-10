@@ -2,6 +2,7 @@ import { Button, Kbd, Select, Stack, Tabs, Text, TextInput, Title } from "@manti
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { TECH_STATUS_LABELS, type TechStatus } from "../../shared/labels";
+import { requestJson } from "../api";
 import { useIsMobile } from "../hooks/useIsMobile";
 
 type InboxTech = {
@@ -38,27 +39,22 @@ export function InboxPage() {
 
   async function reload(): Promise<void> {
     const [rated, open, review, targets, categoryBody] = await Promise.all([
-      readJson<InboxTech[]>("/api/inbox/unrated"),
-      readJson<InboxTech[]>("/api/inbox/unclassified"),
-      readJson<Unreviewed[]>("/api/inbox/subcategories"),
-      readJson<Unreviewed[]>("/api/subcategories"),
-      readJson<CategoryItem[]>("/api/categories"),
+      requestJson<InboxTech[]>("/api/inbox/unrated"),
+      requestJson<InboxTech[]>("/api/inbox/unclassified"),
+      requestJson<Unreviewed[]>("/api/inbox/subcategories"),
+      requestJson<Unreviewed[]>("/api/subcategories"),
+      requestJson<CategoryItem[]>("/api/categories"),
     ]);
-    const failure =
-      rated.message ??
-      open.message ??
-      review.message ??
-      targets.message ??
-      categoryBody.message;
+    const failure = [rated, open, review, targets, categoryBody].find((result) => !result.success);
     if (
-      failure !== null ||
+      failure !== undefined ||
       rated.data === null ||
       open.data === null ||
       review.data === null ||
       targets.data === null ||
       categoryBody.data === null
     ) {
-      setNotice(failure ?? "受け箱を取得できませんでした");
+      setNotice(failure?.error?.message ?? "受け箱を取得できませんでした");
       return;
     }
     setNotice(null);
@@ -80,20 +76,28 @@ export function InboxPage() {
     if (current === undefined || status === null) {
       return;
     }
-    await fetch(`/api/techs/${current.id}`, {
+    const saved = await requestJson<unknown>(`/api/techs/${current.id}`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ status }),
     });
+    if (!saved.success) {
+      setNotice(saved.error?.message ?? "状態を保存できませんでした");
+      return;
+    }
     await reload();
   }
 
   async function confirm(id: string, patch: Record<string, unknown>): Promise<void> {
-    await fetch(`/api/subcategories/${id}`, {
+    const saved = await requestJson<unknown>(`/api/subcategories/${id}`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(patch),
     });
+    if (!saved.success) {
+      setNotice(saved.error?.message ?? "小分類を更新できませんでした");
+      return;
+    }
     await reload();
   }
 
@@ -101,11 +105,15 @@ export function InboxPage() {
     if (intoId === null) {
       return;
     }
-    await fetch(`/api/subcategories/${id}/merge`, {
+    const saved = await requestJson<unknown>(`/api/subcategories/${id}/merge`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ intoId }),
     });
+    if (!saved.success) {
+      setNotice(saved.error?.message ?? "小分類を統合できませんでした");
+      return;
+    }
     await reload();
   }
 
@@ -199,29 +207,3 @@ export function InboxPage() {
   );
 }
 
-async function readJson<T>(
-  path: string,
-): Promise<{ data: T | null; message: string | null }> {
-  let response: Response;
-  try {
-    response = await fetch(path);
-  } catch {
-    return { data: null, message: "通信に失敗しました" };
-  }
-  try {
-    const body = (await response.json()) as {
-      success: boolean;
-      data: T | null;
-      error?: { message: string } | null;
-    };
-    if (!body.success || body.data === null) {
-      return {
-        data: null,
-        message: body.error?.message ?? "受け箱を取得できませんでした",
-      };
-    }
-    return { data: body.data, message: null };
-  } catch {
-    return { data: null, message: "応答を読めませんでした" };
-  }
-}
