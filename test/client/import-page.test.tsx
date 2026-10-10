@@ -154,7 +154,11 @@ describe("取り込み画面", () => {
         <ImportPage />
       </MantineProvider>,
     );
-    expect(await screen.findByText("この幅では取り込みを出しません。")).toBeTruthy();
+    expect(
+      await screen.findByText(
+        "この幅では取り込みを出しません。スマホ幅では閲覧だけを出すためです。取り込みはパソコンのブラウザでこのページを開いてください。",
+      ),
+    ).toBeTruthy();
     expect(screen.queryByLabelText("貼り付け")).toBeNull();
   });
 });

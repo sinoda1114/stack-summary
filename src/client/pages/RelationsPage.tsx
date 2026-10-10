@@ -38,14 +38,22 @@ export function RelationsPage() {
   return (
     <Stack gap="lg">
       <Title order={1}>関係</Title>
-      {loadError === null ? null : <Text className="note">{loadError}</Text>}
-      {graph === null || graph.nodes.length === 0 ? (
-        loadError === null && graph !== null ? <Text>関係はまだありません</Text> : null
-      ) : (
-        <RelationMap graph={graph} />
-      )}
+      <RelationBody graph={graph} loadError={loadError} />
     </Stack>
   );
+}
+
+function RelationBody(props: { graph: RelationGraph | null; loadError: string | null }) {
+  if (props.loadError !== null) {
+    return <Text className="note">{props.loadError}</Text>;
+  }
+  if (props.graph === null) {
+    return <Text className="meta">読み込み中</Text>;
+  }
+  if (props.graph.nodes.length === 0) {
+    return <Text>関係はまだありません</Text>;
+  }
+  return <RelationMap graph={props.graph} />;
 }
 
 function RelationMap(props: { graph: RelationGraph }) {

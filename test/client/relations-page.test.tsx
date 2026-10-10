@@ -1,5 +1,5 @@
 import { MantineProvider } from "@mantine/core";
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router";
 import { RelationsPage } from "../../src/client/pages/RelationsPage";
@@ -64,6 +64,40 @@ describe("関係", () => {
       </MantineProvider>,
     );
     expect(await screen.findByText("関係はまだありません")).toBeTruthy();
+  });
+
+  it("取得が終わるまでは読み込み中と出す", async () => {
+    stubBrowser();
+    let finish: (response: Response) => void = () => undefined;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        () =>
+          new Promise<Response>((resolve) => {
+            finish = resolve;
+          }),
+      ),
+    );
+    render(
+      <MantineProvider>
+        <MemoryRouter>
+          <RelationsPage />
+        </MemoryRouter>
+      </MantineProvider>,
+    );
+    expect(await screen.findByText("読み込み中")).toBeTruthy();
+    expect(screen.queryByText("関係はまだありません")).toBeNull();
+    await act(async () => {
+      finish(
+        Response.json({
+          success: true,
+          data: { nodes: [], edges: [] },
+          error: null,
+        }),
+      );
+    });
+    expect(await screen.findByText("関係はまだありません")).toBeTruthy();
+    expect(screen.queryByText("読み込み中")).toBeNull();
   });
 });
 
