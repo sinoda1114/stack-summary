@@ -105,6 +105,49 @@ describe("GET /api/health", () => {
     expect(response.status).toBe(403);
   });
 
+  it("プレビューフラグがあり Access 設定が空なら、固定ユーザーなしで API を開く", async () => {
+    const response = await call("/api/health", {
+      env: previewEnv(),
+    });
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(JSON.stringify(body)).not.toContain("owner@example.com");
+  });
+
+  it("プレビューフラグがあっても、Access 設定があるときは JWT が要る", async () => {
+    const response = await call("/api/health", {
+      env: { PREVIEW_OPEN: "1" },
+    });
+    expect(response.status).toBe(403);
+  });
+
+  it("プレビューでキーが無い取り込みは、分かるエラーを返す", async () => {
+    const headers = new Headers({ "content-type": "application/json" });
+    const ctx = createExecutionContext();
+    const response = await worker.fetch(
+      new IncomingRequest("https://stack.example/api/imports", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ text: "メモ" }),
+      }),
+      {
+        ...env,
+        ...previewEnv(),
+        APP_ORIGIN: "",
+        GEMINI_API_KEY: "",
+        GEMINI_MODEL: "",
+      },
+      ctx,
+    );
+    await waitOnExecutionContext(ctx);
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({
+      success: false,
+      data: null,
+      error: { code: "config", message: "Gemini の API キーがありません" },
+    });
+  });
+
   it("有効な JWT では 200", async () => {
     const response = await call("/api/health", { token: await sign() });
     expect(response.status).toBe(200);
@@ -197,9 +240,21 @@ async function sign(options: SignOptions = {}): Promise<string> {
     .sign(privateKey);
 }
 
+function previewEnv(): Partial<Env> & { PREVIEW_OPEN: string } {
+  return {
+    PREVIEW_OPEN: "1",
+    ACCESS_TEAM_DOMAIN: "",
+    ACCESS_AUD: "",
+    OWNER_EMAIL: "",
+  };
+}
+
 async function call(
   path: string,
-  options: { token?: string; env?: Partial<Env> } = {},
+  options: {
+    token?: string;
+    env?: Partial<Env> & { PREVIEW_OPEN?: string };
+  } = {},
 ): Promise<Response> {
   const headers = new Headers();
   if (options.token !== undefined) {

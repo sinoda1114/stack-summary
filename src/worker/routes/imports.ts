@@ -13,6 +13,16 @@ import {
 
 const LIST_LIMIT = 50;
 
+function geminiUnavailableMessage(env: {
+  GEMINI_API_KEY?: string;
+}): string {
+  const apiKey = env.GEMINI_API_KEY?.trim() ?? "";
+  if (apiKey.length === 0) {
+    return "Gemini の API キーがありません";
+  }
+  return "Gemini の設定がありません";
+}
+
 export type ImportWorkflowClient = {
   create(options: {
     id?: string;
@@ -41,7 +51,7 @@ export function registerImportRoutes(app: Hono<{ Bindings: Env }>): void {
     }
     const runtime = readGeminiRuntime(c.env);
     if (runtime === null) {
-      return c.json(fail("config", "Gemini の設定がありません"), 500);
+      return c.json(fail("config", geminiUnavailableMessage(c.env)), 500);
     }
     const result = await createImport({
       db: c.env.DB,
