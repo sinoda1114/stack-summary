@@ -1,5 +1,6 @@
 import type { Hono } from "hono";
-import { routedChatAnswer } from "../ai/chat-router";
+import { clefChatRouter, routedChatAnswer } from "../ai/chat-router";
+import { clefBinding, clefDecider } from "../ai/clef";
 import { geminiGeneratorFromApiKey } from "../ai/gemini";
 import { inquireStack } from "../ai/inquire";
 import { InvalidModelOutput } from "../ai/model-output";
@@ -15,15 +16,18 @@ export function registerInquiryRoutes(app: Hono<{ Bindings: Env }>): void {
     if (!question.ok) {
       return c.json(fail(question.code, question.message), 400);
     }
-    const fixed = await routedChatAnswer(question.text);
-    if (fixed !== null) {
-      return c.json(ok({ answer: fixed }));
-    }
-    const runtime = readGeminiRuntime(c.env);
-    if (runtime === null) {
-      return c.json(fail("config", "Gemini の設定がありません"), 500);
-    }
     try {
+      const fixed = await routedChatAnswer(
+        question.text,
+        clefChatRouter(clefDecider(clefBinding(c.env.AI))),
+      );
+      if (fixed !== null) {
+        return c.json(ok({ answer: fixed }));
+      }
+      const runtime = readGeminiRuntime(c.env);
+      if (runtime === null) {
+        return c.json(fail("config", "Gemini の設定がありません"), 500);
+      }
       const context = await loadInquiryContext(c.env.DB);
       const result = await inquireStack(geminiGeneratorFromApiKey(runtime.apiKey), {
         // 渡した一覧から答えの文を書くので、軽いモデルを使う。

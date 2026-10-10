@@ -1,4 +1,3 @@
-import { geminiClassifier } from "../ai/gemini-classifier";
 import type { ExtractTechOutput } from "../ai/prompts/extract.v1";
 import type { SavedMemo } from "../db/memos";
 import {
@@ -50,15 +49,7 @@ export async function executeImport(
       applyExtractions(runner, pairs),
     );
     await step.do("classify", IMPORT_STEP_RETRY, () =>
-      classifyImportTechs(
-        runner,
-        geminiClassifier(
-          runner.generator,
-          // 大分類・小分類は一覧から選ぶので Clef の clef-flash。Clef は未実装で、この引数はまだ生成用の軽いモデル。
-          runner.modelLight,
-        ),
-        applied.techs,
-      ),
+      classifyImportTechs(runner, runner.classifier, applied.techs),
     );
     await step.do("finish", IMPORT_STEP_RETRY, async () => {
       await finishImport(runner, importId, {
