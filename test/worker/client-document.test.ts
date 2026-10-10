@@ -26,13 +26,15 @@ describe("画面の直接読み込み", () => {
   });
 
   it("JWT が無い API は 403", async () => {
-    const response = await call("/api/health");
-    expect(response.status).toBe(403);
-    expect(await response.json()).toEqual({
-      success: false,
-      data: null,
-      error: { code: "forbidden", message: FORBIDDEN_MESSAGE },
-    });
+    for (const path of ["/api/health", "/api/memos", "/api/export", "/api/imports"]) {
+      const response = await call(path);
+      expect(response.status).toBe(403);
+      expect(await response.json()).toEqual({
+        success: false,
+        data: null,
+        error: { code: "forbidden", message: FORBIDDEN_MESSAGE },
+      });
+    }
   });
 
   it("技術詳細と小分類の直接読み込みは SPA", async () => {
@@ -59,8 +61,20 @@ describe("画面の直接読み込み", () => {
     expect(await taxonomy.text()).toContain('id="root"');
   });
 
+  it("書き出しとメモの直接読み込みは SPA", async () => {
+    const exportPage = await call("/export");
+    const memos = await call("/memos");
+    const memo = await call("/memos/memo_1");
+    expect(exportPage.status).toBe(200);
+    expect(memos.status).toBe(200);
+    expect(memo.status).toBe(200);
+    expect(await exportPage.text()).toContain('id="root"');
+    expect(await memos.text()).toContain('id="root"');
+    expect(await memo.text()).toContain('id="root"');
+  });
+
   it("まだ画面が無い経路は JSON 404", async () => {
-    const response = await call("/export");
+    const response = await call("/missing");
     expect(response.status).toBe(404);
     const body: unknown = await response.json();
     expect(body).toMatchObject({
