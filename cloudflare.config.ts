@@ -24,7 +24,6 @@ export default defineConfig({
       IMPORT_MAX_CHARS: bindings.text("50000"),
       PREVIEW_OPEN: bindings.text("1"),
       DB: bindings.d1({
-        name: "stack-summary-preview",
         id: "d56c3abf-aef6-4b76-893e-5403370ca180",
       }),
       IMPORT_WORKFLOW: bindings.workflow({

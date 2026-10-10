@@ -3,6 +3,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes } from "react-router";
 import { AppNav } from "./components/AppNav";
+import { theme } from "./theme";
 import { ExportPage } from "./pages/ExportPage";
 import { ImportPage } from "./pages/ImportPage";
 import { MemoPage } from "./pages/MemoPage";
@@ -12,6 +13,7 @@ import { SubcategoryPage } from "./pages/SubcategoryPage";
 import { TaxonomyPage } from "./pages/TaxonomyPage";
 import { TechPage } from "./pages/TechPage";
 import "@mantine/core/styles.css";
+import "./theme.css";
 
 const root = document.querySelector("#root");
 if (root === null) {
@@ -20,10 +22,11 @@ if (root === null) {
 
 createRoot(root).render(
   <StrictMode>
-    <MantineProvider>
+    <MantineProvider theme={theme}>
       <BrowserRouter>
-        <AppNav />
-        <Routes>
+        <div className="sheet">
+          <AppNav />
+          <Routes>
           <Route path="/" element={<OverviewPage />} />
           <Route path="/imports" element={<ImportPage />} />
           <Route path="/memos" element={<MemoPage />} />
@@ -33,7 +36,8 @@ createRoot(root).render(
           <Route path="/taxonomy" element={<TaxonomyPage />} />
           <Route path="/techs/:id" element={<TechPage />} />
           <Route path="/subcategories/:id" element={<SubcategoryPage />} />
-        </Routes>
+          </Routes>
+        </div>
       </BrowserRouter>
     </MantineProvider>
   </StrictMode>,
