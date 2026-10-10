@@ -47,6 +47,27 @@ describe("メモ検索と格上げと書き出し", () => {
     expect(plain).not.toBe(percent);
   });
 
+  it("検索語が LIKE の 50 バイトを超えても、大文字小文字を無視して見つかる", async () => {
+    const japanese = "あ".repeat(20);
+    const english = "Ab".repeat(30);
+    const japaneseId = await insertMemo({
+      title: "短い題",
+      body: `前文${japanese}後文`,
+      memoDate: "2026-05-01",
+    });
+    const englishId = await insertMemo({
+      title: english,
+      body: "本文",
+      memoDate: "2026-05-02",
+    });
+
+    const japaneseHits = await searchMemos(env.DB, { q: japanese, tag: "" });
+    expect(japaneseHits.map((memo) => memo.id)).toEqual([japaneseId]);
+
+    const englishHits = await searchMemos(env.DB, { q: english.toLowerCase(), tag: "" });
+    expect(englishHits.map((memo) => memo.id)).toEqual([englishId]);
+  });
+
   it("検索は 50 件で打ち切る", async () => {
     const statements = [];
     for (let index = 0; index < 51; index += 1) {

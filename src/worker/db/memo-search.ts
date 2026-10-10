@@ -12,11 +12,16 @@ export async function searchMemos(
   const q = input.q.trim();
   const tag = input.tag.trim();
   const like = `%${escapeLike(q)}%`;
+  const literal = patternBytes(like) > LIKE_PATTERN_BYTE_LIMIT;
+  const needle = literal ? q : like;
+  const textMatch = literal
+    ? "(? = '' OR instr(lower(m.title), lower(?)) > 0 OR instr(lower(m.body), lower(?)) > 0)"
+    : "(? = '' OR m.title LIKE ? ESCAPE '\\' OR m.body LIKE ? ESCAPE '\\')";
   const listed = await db
     .prepare(
       `SELECT m.id, m.title, m.memo_date, m.created_at
        FROM memos m
-       WHERE (? = '' OR m.title LIKE ? ESCAPE '\\' OR m.body LIKE ? ESCAPE '\\')
+       WHERE ${textMatch}
          AND (
            ? = '' OR EXISTS (
              SELECT 1 FROM memo_tags mt
@@ -27,7 +32,7 @@ export async function searchMemos(
        ORDER BY m.memo_date IS NULL, m.memo_date DESC, m.created_at DESC
        LIMIT 50`,
     )
-    .bind(q, like, like, tag, tag)
+    .bind(q, needle, needle, tag, tag)
     .all<{ id: string; title: string; memo_date: string | null; created_at: string }>();
   return listed.results.map((row) => ({
     id: row.id,
@@ -93,6 +98,12 @@ export async function loadMemoDetail(
   };
 }
 
+const LIKE_PATTERN_BYTE_LIMIT = 50;
+
 function escapeLike(value: string): string {
   return value.replace(/[\\%_]/g, (char) => `\\${char}`);
+}
+
+function patternBytes(value: string): number {
+  return new TextEncoder().encode(value).length;
 }
