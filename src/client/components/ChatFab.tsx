@@ -77,86 +77,67 @@ export function ChatFab() {
             w="min(22rem, calc(100vw - 2.5rem))"
             mah="min(32rem, calc(100vh - 7rem))"
             bg="var(--mantine-color-white)"
-            style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}
           >
-            <Group justify="space-between" wrap="nowrap">
-              <Text fw={500}>問い合わせ</Text>
-              <CloseButton aria-label="閉じる" onClick={() => setOpen(false)} />
-            </Group>
-            <div
-              ref={listRef}
-              style={{
-                overflow: "auto",
-                maxHeight: "16rem",
-                display: "flex",
-                flexDirection: "column",
-                gap: "0.5rem",
-              }}
-            >
-              {messages.length === 0 ? (
-                <Text size="sm" c="dimmed">
-                  取り込んだメモと技術について聞けます。使い方は、全体図、取り込み、メモ、受け箱、分類、書き出しです。
-                </Text>
-              ) : (
-                messages.map((message, index) => (
-                  <Text
-                    key={`${message.role}-${index}`}
-                    size="sm"
-                    style={{
-                      alignSelf: message.role === "user" ? "flex-end" : "flex-start",
-                      maxWidth: "92%",
-                      whiteSpace: "pre-wrap",
-                      padding: "0.45rem 0.7rem",
-                      border:
-                        message.role === "user"
-                          ? "1px solid var(--mantine-color-default-border)"
-                          : "none",
-                      borderLeft:
-                        message.role === "assistant"
-                          ? "3px solid var(--mantine-color-ash-4)"
-                          : undefined,
-                      background:
-                        message.role === "user" ? "var(--mantine-color-body)" : "transparent",
-                    }}
-                  >
-                    {message.content}
+            <Stack gap="sm">
+              <Group justify="space-between" wrap="nowrap">
+                <Text fw={500}>問い合わせ</Text>
+                <CloseButton aria-label="閉じる" onClick={() => setOpen(false)} />
+              </Group>
+              <div ref={listRef} className="chat-log">
+                {messages.length === 0 ? (
+                  <Text size="sm" c="dimmed">
+                    取り込んだメモと技術について聞けます。使い方は、全体図、取り込み、メモ、受け箱、分類、書き出しです。
                   </Text>
-                ))
-              )}
-              {pending ? (
-                <Text size="sm" c="dimmed">
-                  考えています
+                ) : (
+                  messages.map((message, index) => (
+                    <Text
+                      key={`${message.role}-${index}`}
+                      size="sm"
+                      className={message.role === "user" ? "chat-ask" : "note chat-answer"}
+                    >
+                      {message.content}
+                    </Text>
+                  ))
+                )}
+                {pending ? (
+                  <Text size="sm" c="dimmed">
+                    考えています
+                  </Text>
+                ) : null}
+              </div>
+              {error === null ? null : (
+                <Text size="sm" c="red">
+                  {error}
                 </Text>
-              ) : null}
-            </div>
-            {error === null ? null : (
-              <Text size="sm" c="red">
-                {error}
-              </Text>
-            )}
-            <form
-              onSubmit={(event) => {
-                event.preventDefault();
-                void send();
-              }}
-            >
-              <Stack gap="xs">
-                <Textarea
-                  ref={inputRef}
-                  label="質問"
-                  value={draft}
-                  onChange={(event) => setDraft(event.currentTarget.value)}
-                  minRows={2}
-                  maxRows={4}
-                  maxLength={2000}
-                />
-                <Group justify="flex-end">
-                  <Button type="submit" variant="default" disabled={pending || draft.trim().length === 0}>
-                    送る
-                  </Button>
-                </Group>
-              </Stack>
-            </form>
+              )}
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void send();
+                }}
+              >
+                <Stack gap="xs">
+                  <Textarea
+                    ref={inputRef}
+                    label="質問"
+                    value={draft}
+                    onChange={(event) => setDraft(event.currentTarget.value)}
+                    minRows={2}
+                    maxRows={4}
+                    maxLength={2000}
+                  />
+                  <Group justify="flex-end">
+                    <Button
+                      type="submit"
+                      variant="default"
+                      disabled={pending || draft.trim().length === 0}
+                    >
+                      送る
+                    </Button>
+                  </Group>
+                </Stack>
+              </form>
+            </Stack>
           </Paper>
         ) : null}
         <Button
