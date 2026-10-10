@@ -14,7 +14,10 @@
     "ACCESS_TEAM_DOMAIN": "",
     "ACCESS_AUD": "",
     "APP_ORIGIN": "",
-    "GEMINI_MODEL": "",
+    // 仮。生成のみ。技術名の抽出と、問い合わせの答え。コードには埋め込まない。
+    "GEMINI_MODEL_LIGHT": "gemini-flash-lite-latest",
+    // 仮。生成のみ。メモの題、本文、日付。コードには埋め込まない。
+    "GEMINI_MODEL_HEAVY": "gemini-flash-latest",
     "IMPORT_MAX_CHARS": "50000"
   },
   "secrets": {

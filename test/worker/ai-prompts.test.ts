@@ -301,26 +301,37 @@ describe("Gemini の指示とモック", () => {
 });
 
 describe("仮の取り込み上限", () => {
-  it("空と 50000 超を拒み、モデル名が空なら設定を読まない", () => {
+  it("空と 50000 超を拒み、軽いモデルか重いモデルが空なら設定を読まない", () => {
     expect(importTextProblem("   ", 50000)).toBe("empty");
     expect(importTextProblem("a".repeat(50000), 50000)).toBeNull();
     expect(importTextProblem("a".repeat(50001), 50000)).toBe("too_long");
     expect(
       readGeminiRuntime({
         GEMINI_API_KEY: "key",
-        GEMINI_MODEL: " ",
+        GEMINI_MODEL_LIGHT: " ",
+        GEMINI_MODEL_HEAVY: "heavy-model",
         IMPORT_MAX_CHARS: "50000",
       }),
     ).toBeNull();
     expect(
       readGeminiRuntime({
         GEMINI_API_KEY: "key",
-        GEMINI_MODEL: "gemini-flash",
+        GEMINI_MODEL_LIGHT: "light-model",
+        GEMINI_MODEL_HEAVY: " ",
+        IMPORT_MAX_CHARS: "50000",
+      }),
+    ).toBeNull();
+    expect(
+      readGeminiRuntime({
+        GEMINI_API_KEY: "key",
+        GEMINI_MODEL_LIGHT: "light-model",
+        GEMINI_MODEL_HEAVY: "heavy-model",
         IMPORT_MAX_CHARS: "50000",
       }),
     ).toEqual({
       apiKey: "key",
-      model: "gemini-flash",
+      modelLight: "light-model",
+      modelHeavy: "heavy-model",
       importMaxChars: 50000,
     });
   });

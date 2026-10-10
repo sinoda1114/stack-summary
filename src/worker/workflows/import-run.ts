@@ -52,7 +52,11 @@ export async function executeImport(
     await step.do("classify", IMPORT_STEP_RETRY, () =>
       classifyImportTechs(
         runner,
-        geminiClassifier(runner.generator, runner.model),
+        geminiClassifier(
+          runner.generator,
+          // 大分類・小分類は一覧から選ぶので Clef の clef-flash。Clef は未実装で、この引数はまだ生成用の軽いモデル。
+          runner.modelLight,
+        ),
         applied.techs,
       ),
     );
