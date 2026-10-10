@@ -22,6 +22,7 @@ describe("全体図", () => {
             {
               id: "backend",
               name: "バックエンド",
+              subcategoryCount: 1,
               subcategories: [
                 {
                   id: "sub",
@@ -62,6 +63,7 @@ describe("全体図", () => {
             {
               id: "backend",
               name: "バックエンド",
+              subcategoryCount: 2,
               subcategories: [
                 {
                   id: "frameworks",

@@ -9,7 +9,7 @@ import { useIsMobile } from "../hooks/useIsMobile";
 type OverviewCategory = {
   id: string;
   name: string;
-  subcategoryCount?: number;
+  subcategoryCount: number;
   subcategories: {
     id: string;
     name: string;
@@ -64,18 +64,7 @@ export function OverviewPage() {
   const sections = categories.map((category) => (
     <Stack key={category.id} gap="xs">
       <Title order={2}>{category.name}</Title>
-      {category.subcategories.map((subcategory) => (
-        <Stack key={subcategory.id} gap={4}>
-          {showsSubcategoryName(category) ? (
-            <Link to={`/subcategories/${subcategory.id}`}>{subcategory.name}</Link>
-          ) : null}
-          <Group>
-            {subcategory.techs.map((tech) => (
-              <TechBadge key={tech.id} id={tech.id} name={tech.name} status={tech.status} />
-            ))}
-          </Group>
-        </Stack>
-      ))}
+      <CategoryBody category={category} />
     </Stack>
   ));
 
@@ -100,18 +89,7 @@ export function OverviewPage() {
             <Accordion.Item key={category.id} value={category.id}>
               <Accordion.Control>{category.name}</Accordion.Control>
               <Accordion.Panel>
-                {category.subcategories.map((subcategory) => (
-                  <Stack key={subcategory.id} gap={4}>
-                    {showsSubcategoryName(category) ? (
-                      <Link to={`/subcategories/${subcategory.id}`}>{subcategory.name}</Link>
-                    ) : null}
-                    <Group>
-                      {subcategory.techs.map((tech) => (
-                        <TechBadge key={tech.id} id={tech.id} name={tech.name} status={tech.status} />
-                      ))}
-                    </Group>
-                  </Stack>
-                ))}
+                <CategoryBody category={category} />
               </Accordion.Panel>
             </Accordion.Item>
           ))}
@@ -123,7 +101,25 @@ export function OverviewPage() {
   );
 }
 
+function CategoryBody(props: { category: OverviewCategory }) {
+  return (
+    <>
+      {props.category.subcategories.map((subcategory) => (
+        <Stack key={subcategory.id} gap={4}>
+          {showsSubcategoryName(props.category) ? (
+            <Link to={`/subcategories/${subcategory.id}`}>{subcategory.name}</Link>
+          ) : null}
+          <Group>
+            {subcategory.techs.map((tech) => (
+              <TechBadge key={tech.id} id={tech.id} name={tech.name} status={tech.status} />
+            ))}
+          </Group>
+        </Stack>
+      ))}
+    </>
+  );
+}
+
 function showsSubcategoryName(category: OverviewCategory): boolean {
-  const count = category.subcategoryCount ?? category.subcategories.length;
-  return count !== 1;
+  return category.subcategoryCount !== 1;
 }
