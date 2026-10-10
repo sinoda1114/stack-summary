@@ -26,7 +26,8 @@ export class ImportWorkflow extends WorkflowEntrypoint<Env, ImportWorkflowParams
       {
         db: this.env.DB,
         generator: geminiGeneratorFromApiKey(runtime.apiKey),
-        model: runtime.model,
+        modelLight: runtime.modelLight,
+        modelHeavy: runtime.modelHeavy,
         now: new Date().toISOString(),
       },
       event.payload.importId,

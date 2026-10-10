@@ -52,7 +52,11 @@ export async function executeImport(
     await step.do("classify", IMPORT_STEP_RETRY, () =>
       classifyImportTechs(
         runner,
-        geminiClassifier(runner.generator, runner.model),
+        geminiClassifier(
+          runner.generator,
+          // 渡した分類一覧へ技術を振り分けるだけなので、軽いモデルを使う。
+          runner.modelLight,
+        ),
         applied.techs,
       ),
     );

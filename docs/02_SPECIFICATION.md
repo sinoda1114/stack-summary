@@ -2,7 +2,7 @@
 
 - 対象: stack-summary
 - 作成日: 2026-10-10
-- 改訂: 2026-10-10（仕様レビュー判定の「直す」5点と「決めた一文」を手順にした。利用枠・文字数上限・Workflows は仮値）
+- 改訂: 2026-10-10（仕様レビュー判定の「直す」5点と「決めた一文」を手順にした。利用枠・文字数上限・Workflows は仮値。Gemini のモデルは軽い処理と重い処理に分け、どちらも仮値）
 - 関連文書: [01_REQUIREMENTS.md](01_REQUIREMENTS.md) / [03_STRUCTURE.md](03_STRUCTURE.md)
 
 ## 1. アーキテクチャ
@@ -41,7 +41,8 @@
 | 名前 | 種別 | 内容 |
 | --- | --- | --- |
 | `GEMINI_API_KEY` | secret | Gemini の API キー。段階 4 以降 |
-| `GEMINI_MODEL` | var | 使うモデル名（Flash 系）。コードに埋め込まない |
+| `GEMINI_MODEL_LIGHT` | var | 軽い処理のモデル名。仮値は `gemini-flash-lite-latest`。技術名の抽出と分類。コードに埋め込まない |
+| `GEMINI_MODEL_HEAVY` | var | 重い処理のモデル名。仮値は `gemini-flash-latest`。メモの分割（推論が要る）。コードに埋め込まない |
 | `ACCESS_TEAM_DOMAIN` | var | `https://<team>.cloudflareaccess.com`。末尾スラッシュは付けない |
 | `ACCESS_AUD` | var | Access アプリケーションの AUD タグ |
 | `OWNER_EMAIL` | secret | 利用者本人のメールアドレス。リポジトリに書かない |
@@ -362,6 +363,7 @@ ON CONFLICT (category_id, name) DO NOTHING;
 - 指示文は `src/worker/ai/prompts/` に版付きで置く。分類結果に記録する版は、その指示文ファイルの定数（`classify.v1` など）であり、環境変数では文面を選ばない（NFR-08）。
 - メモ本文に含まれる指示文には従わないよう、指示文の側で明示する。出力は決めた JSON の形以外を受け付けないので、注入されても被害は分類の乱れにとどまる。
 - 抽出の指示には次を含める。主題・比較・言及の判定。返すのは名前、関係、別名候補、タグ候補までで、既存 ID は返さない。新機能は親の製品名を `name` に入れる。会社やプロジェクト群は技術にせずベンダーのタグにする。短い呼び方と正式名は別名で結ぶ。
+- 呼び出しごとにモデルを分ける。分割は `GEMINI_MODEL_HEAVY`（原文の仕分けと日付の読み取りは推論が要る）。抽出と分類は `GEMINI_MODEL_LIGHT`（技術名の抜き出しと、渡した一覧への振り分け）。モデル名はコードに埋め込まず、どちらも仮値である。
 - 仮: 利用枠は有料枠。貼り付け全文を Gemini に送る。他人の発言は除かない。無料枠の規約確認は未了。
 
 ### 6.9 再処理
