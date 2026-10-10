@@ -1,0 +1,18 @@
+# 中身の実体は sinoda1114/ci-standard 側にあり、標準の改善は全リポジトリへ自動反映される。
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    uses: sinoda1114/ci-standard/.github/workflows/node-ci.yml@main

@@ -136,10 +136,10 @@ stack-summary/
 | `vite` / `@vitejs/plugin-react` / `@cloudflare/vite-plugin` | ビルド・開発 | 開発。画面の段階 |
 | `wrangler` | デプロイ・型生成・D1 マイグレーション | 開発 |
 | `typescript` | 型検査 | 開発 |
-| `vitest` / `@cloudflare/vitest-pool-workers` | テスト | 開発 |
+| `vitest` / `@cloudflare/vitest-plugin` | テスト。旧 `@cloudflare/vitest-pool-workers` の後継 | 開発 |
 | `@testing-library/react` | 画面のテスト | 開発。段階 7 以降 |
 
-line-send と共通の部分（Hono、React、Mantine、Vite、テスト）は、line-send に版があるとき同じ版に揃える。段階 1 の時点で line-send に `package.json` が無いため、段階 1 は Worker の土台に必要な `hono`、`jose`、`wrangler`、`typescript`、`vitest`、`@cloudflare/vitest-pool-workers` だけを入れる。
+line-send と共通の部分（Hono、React、Mantine、Vite、テスト）は、line-send に版があるとき同じ版に揃える。段階 1 の時点で line-send に `package.json` が無いため、段階 1 は Worker の土台に必要な `hono`、`jose`、`wrangler`、`typescript`、`vitest`、`@cloudflare/vitest-plugin` だけを入れる。
 
 `.npmrc` は `ignore-scripts=true`、`save-exact=true`、`audit-level=high` とする。
 

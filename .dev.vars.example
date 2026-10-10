@@ -1,0 +1,6 @@
+# ローカルの secret と var。このファイルはコミットする。実値は .dev.vars に書き、コミットしない。
+# 固定ユーザーで JWT を読み替える分岐は、本番の Worker に入れない。
+ACCESS_TEAM_DOMAIN=https://example.cloudflareaccess.com
+ACCESS_AUD=replace-me
+OWNER_EMAIL=owner@example.com
+APP_ORIGIN=http://localhost:8787
