@@ -16,6 +16,7 @@ export type OverviewSubcategory = {
 export type OverviewCategory = {
   id: string;
   name: string;
+  subcategoryCount: number;
   subcategories: OverviewSubcategory[];
 };
 
@@ -83,8 +84,8 @@ export async function loadOverview(
 
   const filtering = filter.status !== null || filter.tag !== null || filter.q !== null;
   return categories.results.flatMap((category) => {
-    const groups = subcategories.results
-      .filter((subcategory) => subcategory.category_id === category.id)
+    const owned = subcategories.results.filter((subcategory) => subcategory.category_id === category.id);
+    const groups = owned
       .map((subcategory) => ({
         id: subcategory.id,
         name: subcategory.name,
@@ -94,7 +95,14 @@ export async function loadOverview(
     if (filtering && groups.length === 0) {
       return [];
     }
-    return [{ id: category.id, name: category.name, subcategories: groups }];
+    return [
+      {
+        id: category.id,
+        name: category.name,
+        subcategoryCount: owned.length,
+        subcategories: groups,
+      },
+    ];
   });
 }
 

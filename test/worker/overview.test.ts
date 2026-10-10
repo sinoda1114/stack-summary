@@ -52,6 +52,22 @@ describe("全体図と技術詳細", () => {
     expect(importId).toBeTruthy();
   });
 
+  it("絞り込みで小分類が1件でも、大分類の小分類数は残す", async () => {
+    const framework = await insertSubcategory("backend", "フレームワーク");
+    await insertSubcategory("backend", "ランタイム");
+    await insertTech("Hono", framework, null);
+
+    const filtered = await loadOverview(env.DB, {
+      status: "unrated",
+      tag: null,
+      q: null,
+    });
+
+    expect(filtered.map((category) => category.id)).toEqual(["backend"]);
+    expect(filtered[0]?.subcategoryCount).toBe(2);
+    expect(filtered[0]?.subcategories.map((subcategory) => subcategory.name)).toEqual(["フレームワーク"]);
+  });
+
   it("関連メモは日付の降順で、日付が空なら後にする", async () => {
     const importId = await insertImport();
     const subcategoryId = await insertSubcategory("backend", "フレームワーク");

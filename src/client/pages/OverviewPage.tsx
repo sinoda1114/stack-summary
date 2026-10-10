@@ -8,6 +8,7 @@ import { useIsMobile } from "../hooks/useIsMobile";
 type OverviewCategory = {
   id: string;
   name: string;
+  subcategoryCount?: number;
   subcategories: {
     id: string;
     name: string;
@@ -31,7 +32,11 @@ export function OverviewPage() {
       params.set("q", q.trim());
     }
     const query = params.size === 0 ? "" : `?${params.toString()}`;
-    void loadOverview(query, setCategories, setLoadError);
+    const controller = new AbortController();
+    void loadOverview(query, controller.signal, setCategories, setLoadError);
+    return () => {
+      controller.abort();
+    };
   }, [status, q]);
 
   const sections = categories.map((category) => (
@@ -39,9 +44,9 @@ export function OverviewPage() {
       <Title order={2}>{category.name}</Title>
       {category.subcategories.map((subcategory) => (
         <Stack key={subcategory.id} gap={4}>
-          {category.subcategories.length === 1 ? null : (
+          {showsSubcategoryName(category) ? (
             <Link to={`/subcategories/${subcategory.id}`}>{subcategory.name}</Link>
-          )}
+          ) : null}
           <Group>
             {subcategory.techs.map((tech) => (
               <TechBadge key={tech.id} id={tech.id} name={tech.name} status={tech.status} />
@@ -75,9 +80,9 @@ export function OverviewPage() {
               <Accordion.Panel>
                 {category.subcategories.map((subcategory) => (
                   <Stack key={subcategory.id} gap={4}>
-                    {category.subcategories.length === 1 ? null : (
+                    {showsSubcategoryName(category) ? (
                       <Link to={`/subcategories/${subcategory.id}`}>{subcategory.name}</Link>
-                    )}
+                    ) : null}
                     <Group>
                       {subcategory.techs.map((tech) => (
                         <TechBadge key={tech.id} id={tech.id} name={tech.name} status={tech.status} />
@@ -96,18 +101,27 @@ export function OverviewPage() {
   );
 }
 
+function showsSubcategoryName(category: OverviewCategory): boolean {
+  const count = category.subcategoryCount ?? category.subcategories.length;
+  return count !== 1;
+}
+
 async function loadOverview(
   query: string,
+  signal: AbortSignal,
   setCategories: (categories: OverviewCategory[]) => void,
   setLoadError: (message: string | null) => void,
 ): Promise<void> {
   try {
-    const response = await fetch(`/api/overview${query}`);
+    const response = await fetch(`/api/overview${query}`, { signal });
     const body = (await response.json()) as {
       success: boolean;
       data: OverviewCategory[] | null;
       error: { message: string } | null;
     };
+    if (signal.aborted) {
+      return;
+    }
     if (!body.success || body.data === null) {
       setCategories([]);
       setLoadError(body.error?.message ?? "全体図を取得できませんでした");
@@ -116,7 +130,14 @@ async function loadOverview(
     setLoadError(null);
     setCategories(body.data);
   } catch (error) {
+    if (signal.aborted || isAbortError(error)) {
+      return;
+    }
     setCategories([]);
     setLoadError(error instanceof SyntaxError ? "応答を読めませんでした" : "通信に失敗しました");
   }
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "AbortError";
 }
