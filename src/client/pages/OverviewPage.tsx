@@ -25,6 +25,8 @@ type OverviewCategory = {
   ungrouped?: OverviewTech[];
 };
 
+const filterFieldStyle = { width: "16rem", maxWidth: "100%" };
+
 export function OverviewPage() {
   const mobile = useIsMobile();
   const [status, setStatus] = useState<string | null>(null);
@@ -90,8 +92,14 @@ export function OverviewPage() {
           data={Object.entries(TECH_STATUS_LABELS).map(([value, label]) => ({ value, label }))}
           value={status}
           onChange={setStatus}
+          style={filterFieldStyle}
         />
-        <TextInput label="キーワード" value={q} onChange={(event) => setQ(event.currentTarget.value)} />
+        <TextInput
+          label="キーワード"
+          value={q}
+          onChange={(event) => setQ(event.currentTarget.value)}
+          style={filterFieldStyle}
+        />
       </Group>
       {mobile ? (
         <Accordion>

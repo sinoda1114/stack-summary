@@ -31,7 +31,9 @@ export function ImportPage() {
     <Stack gap="lg">
       <Title order={1}>取り込み</Title>
       {mobile ? (
-        <Text>この幅では取り込みを出しません。</Text>
+        <Text>
+          この幅では取り込みを出しません。スマホ幅では閲覧だけを出すためです。取り込みはパソコンのブラウザでこのページを開いてください。
+        </Text>
       ) : (
         <div className="section-card">
           <Stack>

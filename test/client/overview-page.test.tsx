@@ -210,7 +210,36 @@ describe("全体図", () => {
     expect(screen.queryByText("通信に失敗しました")).toBeNull();
     expect(screen.getByText("Workers 採用中")).toBeTruthy();
   });
+
+  it("状態とキーワードの欄は同じ幅である", async () => {
+    stubBrowser();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json({ success: true, data: [], error: null })),
+    );
+    render(
+      <MantineProvider>
+        <MemoryRouter>
+          <OverviewPage />
+        </MemoryRouter>
+      </MantineProvider>,
+    );
+    expect(await screen.findByRole("textbox", { name: "キーワード" })).toBeTruthy();
+    const statusWidth = fieldWidth("combobox", "状態");
+    const keywordWidth = fieldWidth("textbox", "キーワード");
+    expect(statusWidth).toBe(keywordWidth);
+    expect(statusWidth).toBe("16rem");
+  });
 });
+
+function fieldWidth(role: "combobox" | "textbox", name: string): string {
+  const control = screen.getByRole(role, { name });
+  const root = control.closest(".mantine-Select-root, .mantine-TextInput-root");
+  if (!(root instanceof HTMLElement)) {
+    return "";
+  }
+  return root.style.width;
+}
 
 function stubBrowser(): void {
   vi.stubGlobal(
