@@ -73,6 +73,7 @@ export function ChatFab() {
             role="dialog"
             aria-label="問い合わせ"
             withBorder
+            radius={16}
             p="md"
             w="min(22rem, calc(100vw - 2.5rem))"
             mah="min(32rem, calc(100vh - 7rem))"
@@ -130,6 +131,7 @@ export function ChatFab() {
                     <Button
                       type="submit"
                       variant="default"
+                      radius={999}
                       disabled={pending || draft.trim().length === 0}
                     >
                       送る
@@ -143,6 +145,7 @@ export function ChatFab() {
         <Button
           type="button"
           variant="default"
+          radius={999}
           aria-expanded={open}
           aria-controls={open ? "chat-panel" : undefined}
           onClick={() => setOpen((value) => !value)}
