@@ -47,7 +47,7 @@ function MemoSearch() {
       if (!current) {
         return;
       }
-      if (!result.success || result.data === null) {
+      if (!result.success) {
         setMemos([]);
         setNotice(result.error?.message ?? "メモを取得できませんでした");
         return;
@@ -87,7 +87,7 @@ function MemoDetailView(props: { id: string }) {
       if (!current) {
         return;
       }
-      if (!result.success || result.data === null) {
+      if (!result.success) {
         setDetail(null);
         setNotice(result.error?.message ?? "メモを取得できませんでした");
         return;
@@ -111,7 +111,7 @@ function MemoDetailView(props: { id: string }) {
       return;
     }
     const loaded = await loadDetail(props.id);
-    if (!loaded.success || loaded.data === null) {
+    if (!loaded.success) {
       setDetail(null);
       setNotice(loaded.error?.message ?? "メモを取得できませんでした");
       return;

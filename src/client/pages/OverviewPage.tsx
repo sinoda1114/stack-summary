@@ -40,9 +40,9 @@ export function OverviewPage() {
         if (!current) {
           return;
         }
-        if (!result.success || result.data === null) {
+        if (!result.success) {
           setCategories([]);
-          setLoadError(result.error?.message ?? "全体図を取得できませんでした");
+          setLoadError(result.error.message);
           return;
         }
         setLoadError(null);

@@ -1,8 +1,11 @@
-export type ApiResult<T> = {
-  success: boolean;
-  data: T | null;
-  error: { code: string; message: string } | null;
+export type ApiError = {
+  code: string;
+  message: string;
 };
+
+export type ApiResult<T> =
+  | { success: true; data: T; error: null; httpStatus: number }
+  | { success: false; data: null; error: ApiError; httpStatus: number };
 
 export type ImportItem = {
   id: string;
@@ -22,37 +25,56 @@ export async function listImports(): Promise<ApiResult<ImportItem[]>> {
 export async function createImport(
   text: string,
   sourceLabel: string,
-): Promise<ApiResult<ImportItem> & { httpStatus: number }> {
+): Promise<ApiResult<ImportItem>> {
   const body: { text: string; sourceLabel?: string } = { text };
   const trimmed = sourceLabel.trim();
   if (trimmed.length > 0) {
     body.sourceLabel = trimmed;
   }
-  let response: Response;
-  try {
-    response = await fetch("/api/imports", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
-    });
-  } catch {
-    return { ...failed("network", "通信に失敗しました"), httpStatus: 0 };
-  }
-  try {
-    const result = await parseApiResult<ImportItem>(response);
-    return { ...result, httpStatus: response.status };
-  } catch {
-    return { ...failed("invalid", "応答を読めませんでした"), httpStatus: response.status };
-  }
+  return requestJson<ImportItem>("/api/imports", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export function requestJson<T>(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): Promise<ApiResult<T>> {
+  return request(input, init, parseApiResult<T>);
+}
+
+export function requestBlob(input: RequestInfo | URL): Promise<ApiResult<Blob>> {
+  return request(input, undefined, async (response) => {
+    if (!response.ok) {
+      try {
+        return await parseApiResult<Blob>(response);
+      } catch {
+        return failed("failed", "書き出しに失敗しました", response.status);
+      }
+    }
+    try {
+      return {
+        success: true,
+        data: await response.blob(),
+        error: null,
+        httpStatus: response.status,
+      };
+    } catch {
+      return failed("failed", "書き出しに失敗しました", response.status);
+    }
+  });
 }
 
 export function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === "AbortError";
 }
 
-export async function requestJson<T>(
+async function request<T>(
   input: RequestInfo | URL,
-  init?: RequestInit,
+  init: RequestInit | undefined,
+  read: (response: Response) => Promise<ApiResult<T>>,
 ): Promise<ApiResult<T>> {
   let response: Response;
   try {
@@ -61,59 +83,49 @@ export async function requestJson<T>(
     if (isAbortError(error)) {
       throw error;
     }
-    return failed("network", "通信に失敗しました");
+    return failed("network", "通信に失敗しました", 0);
   }
   try {
     if (init?.signal?.aborted) {
       throw new DOMException("aborted", "AbortError");
     }
-    return await parseApiResult<T>(response);
+    return await read(response);
   } catch (error) {
     if (isAbortError(error)) {
       throw error;
     }
-    return failed("invalid", "応答を読めませんでした");
+    return failed("invalid", "応答を読めませんでした", response.status);
   }
 }
 
 async function parseApiResult<T>(response: Response): Promise<ApiResult<T>> {
   const body: unknown = await response.json();
   if (!isEnvelope(body)) {
-    return failed("invalid", "応答を読めませんでした");
+    return failed("invalid", "応答を読めませんでした", response.status);
   }
   if (!body.success || body.data === null || body.data === undefined) {
-    const error = isApiError(body.error) ? body.error : { code: "failed", message: "取得に失敗しました" };
-    return { success: false, data: null, error };
+    return {
+      success: false,
+      data: null,
+      error: isApiError(body.error) ? body.error : { code: "failed", message: "取得に失敗しました" },
+      httpStatus: response.status,
+    };
   }
-  return { success: true, data: body.data as T, error: null };
+  return {
+    success: true,
+    data: body.data as T,
+    error: null,
+    httpStatus: response.status,
+  };
 }
 
-export async function requestBlob(input: RequestInfo | URL): Promise<ApiResult<Blob>> {
-  let response: Response;
-  try {
-    response = await fetch(input);
-  } catch {
-    return failed("network", "通信に失敗しました");
-  }
-  if (!response.ok) {
-    try {
-      return await parseApiResult<Blob>(response);
-    } catch {
-      return failed("failed", "書き出しに失敗しました");
-    }
-  }
-  try {
-    return { success: true, data: await response.blob(), error: null };
-  } catch {
-    return failed("failed", "書き出しに失敗しました");
-  }
+function failed(code: string, message: string, httpStatus: number): ApiResult<never> {
+  return { success: false, data: null, error: { code, message }, httpStatus };
 }
 
-function failed(code: string, message: string): ApiResult<never> {
-  return { success: false, data: null, error: { code, message } };
-}
-
-function isEnvelope(body: unknown): body is { success: boolean; data: unknown; error?: unknown } {
+function isEnvelope(
+  body: unknown,
+): body is { success: boolean; data: unknown; error?: unknown } {
   return (
     typeof body === "object" &&
     body !== null &&
@@ -123,7 +135,7 @@ function isEnvelope(body: unknown): body is { success: boolean; data: unknown; e
   );
 }
 
-function isApiError(error: unknown): error is { code: string; message: string } {
+function isApiError(error: unknown): error is ApiError {
   return (
     typeof error === "object" &&
     error !== null &&

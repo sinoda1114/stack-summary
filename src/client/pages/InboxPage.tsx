@@ -46,14 +46,7 @@ export function InboxPage() {
       requestJson<CategoryItem[]>("/api/categories"),
     ]);
     const failure = [rated, open, review, targets, categoryBody].find((result) => !result.success);
-    if (
-      failure !== undefined ||
-      rated.data === null ||
-      open.data === null ||
-      review.data === null ||
-      targets.data === null ||
-      categoryBody.data === null
-    ) {
+    if (failure !== undefined) {
       setNotice(failure?.error?.message ?? "受け箱を取得できませんでした");
       return;
     }

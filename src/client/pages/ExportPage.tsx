@@ -9,7 +9,7 @@ export function ExportPage() {
 
   async function download(format: "json" | "markdown"): Promise<void> {
     const result = await requestBlob(`/api/export?format=${format}`);
-    if (!result.success || result.data === null) {
+    if (!result.success) {
       setNotice(result.error?.message ?? "書き出しに失敗しました");
       return;
     }

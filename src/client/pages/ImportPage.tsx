@@ -17,7 +17,7 @@ export function ImportPage() {
 
   async function onSubmit(): Promise<void> {
     const result = await createImport(text, sourceLabel);
-    if (!result.success || result.data === null) {
+    if (!result.success) {
       setMessage(result.error?.message ?? "取り込みに失敗しました");
       return;
     }
@@ -71,7 +71,7 @@ async function reload(
   setMessage: (message: string | null) => void,
 ): Promise<void> {
   const result = await listImports();
-  if (!result.success || result.data === null) {
+  if (!result.success) {
     setMessage(result.error?.message ?? "取り込み履歴を取得できませんでした");
     return;
   }
