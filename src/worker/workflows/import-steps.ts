@@ -150,37 +150,45 @@ export async function applyExtractions(
       techs.push({ techId: resolved.techId, context });
       rememberAliases(resolved, rows);
       const fold = folded.get(resolved.techId) ?? {
-        memoId: pair.memo.id,
         aliases: new Map<string, { key: string; label: string }>(),
-        tagIds: [],
-        replace: false,
+        notes: [],
       };
       for (const label of aliasLabels(tech.name, tech.aliases)) {
         fold.aliases.set(label.key, label);
       }
       const incomingKey = aliasKey(tech.name);
       if (resolved.created || incomingKey === resolved.nameKey) {
-        fold.replace = true;
-        fold.memoId = pair.memo.id;
-        fold.tagIds.push(...(await tagIdsFor(runner.db, tech.tags)));
+        fold.notes.push({
+          memoId: pair.memo.id,
+          tagIds: await tagIdsFor(runner.db, tech.tags),
+        });
       }
       folded.set(resolved.techId, fold);
     }
   }
-  const replacements = [...folded.entries()]
-    .filter(([, fold]) => fold.replace)
-    .map(([techId, fold]) => ({
-      memoId: fold.memoId,
-      techId,
-      aliases: [...fold.aliases.values()],
-      tagIds: fold.tagIds,
-    }));
+  const replaced = [...folded.entries()].filter(([, fold]) => fold.notes.length > 0);
   await replaceModelAnnotations(
     runner.db,
-    replacements.map((item) => ({ ...item, tagIds: [] })),
+    replaced.map(([techId, fold]) => ({
+      memoId: fold.notes[0]?.memoId ?? "",
+      techId,
+      aliases: [...fold.aliases.values()],
+      tagIds: [],
+    })),
     "aliases",
   );
-  await replaceModelAnnotations(runner.db, replacements, "tags");
+  await replaceModelAnnotations(
+    runner.db,
+    replaced.flatMap(([techId, fold]) =>
+      fold.notes.map((note) => ({
+        memoId: note.memoId,
+        techId,
+        aliases: [],
+        tagIds: note.tagIds,
+      })),
+    ),
+    "tags",
+  );
   return { techs, notes };
 }
 
@@ -282,10 +290,8 @@ export async function failImport(
 }
 
 type FoldedTech = {
-  memoId: string;
   aliases: Map<string, { key: string; label: string }>;
-  tagIds: string[];
-  replace: boolean;
+  notes: { memoId: string; tagIds: string[] }[];
 };
 
 async function tagIdsFor(
