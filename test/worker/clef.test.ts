@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  chatRouteAnswer,
-  chatRouteFromChoice,
-  routeChatQuestion,
-} from "../../src/worker/ai/chat-route";
+import { chatRouteFromChoice, routeChatQuestion } from "../../src/worker/ai/chat-route";
+import { clefChatRouter, routedChatAnswer } from "../../src/worker/ai/chat-router";
 import {
   CLEF_MODEL,
   clefDecider,
@@ -179,12 +176,16 @@ describe("Clef の名寄せと質問の振り分け", () => {
     await expect(routeChatQuestion(scriptedRoute({ route: "stack" }), "Hono は？")).resolves.toBe(
       "stack",
     );
-    await expect(routeChatQuestion(scriptedRoute({ route: "howto" }), "どう使う？")).resolves.toBe(
-      "howto",
+    await expect(routeChatQuestion(scriptedRoute({ route: "usage" }), "どう使う？")).resolves.toBe(
+      "usage",
     );
     expect(chatRouteFromChoice("unknown")).toBe("out_of_scope");
-    expect(chatRouteAnswer("howto")).toContain("全体図");
-    expect(chatRouteAnswer("out_of_scope")).toContain("使い方");
+    const usage = clefChatRouter(scriptedRoute({ route: "usage" }));
+    const outside = clefChatRouter(scriptedRoute({ route: "out_of_scope" }));
+    const stack = clefChatRouter(scriptedRoute({ route: "stack" }));
+    await expect(routedChatAnswer("どう使う？", usage)).resolves.toContain("全体図");
+    await expect(routedChatAnswer("天気は？", outside)).resolves.toContain("使い方");
+    await expect(routedChatAnswer("Hono は？", stack)).resolves.toBeNull();
   });
 });
 

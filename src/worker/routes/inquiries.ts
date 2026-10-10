@@ -1,5 +1,5 @@
 import type { Hono } from "hono";
-import { chatRouteAnswer, routeChatQuestion } from "../ai/chat-route";
+import { clefChatRouter, routedChatAnswer } from "../ai/chat-router";
 import { clefBinding, clefDecider } from "../ai/clef";
 import { geminiGeneratorFromApiKey } from "../ai/gemini";
 import { inquireStack } from "../ai/inquire";
@@ -17,12 +17,12 @@ export function registerInquiryRoutes(app: Hono<{ Bindings: Env }>): void {
       return c.json(fail(question.code, question.message), 400);
     }
     try {
-      const route = await routeChatQuestion(
-        clefDecider(clefBinding(c.env.AI)),
+      const fixed = await routedChatAnswer(
         question.text,
+        clefChatRouter(clefDecider(clefBinding(c.env.AI))),
       );
-      if (route !== "stack") {
-        return c.json(ok({ answer: chatRouteAnswer(route) }));
+      if (fixed !== null) {
+        return c.json(ok({ answer: fixed }));
       }
       const runtime = readGeminiRuntime(c.env);
       if (runtime === null) {
