@@ -126,6 +126,10 @@ describe("メモ検索と格上げと書き出し", () => {
       .bind(memoId, created.techId)
       .first<{ relation: string }>();
     expect(link).toEqual({ relation: "subject" });
+    const alias = await env.DB.prepare(
+      "SELECT source FROM tech_aliases WHERE alias_key = 'laya'",
+    ).first<{ source: string }>();
+    expect(alias).toEqual({ source: "model" });
 
     await env.DB.prepare(
       "UPDATE memo_techs SET relation = 'comparison' WHERE memo_id = ? AND tech_id = ?",

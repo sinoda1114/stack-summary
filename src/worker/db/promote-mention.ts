@@ -1,4 +1,5 @@
 import { resolveExtractedTech } from "../ingest/resolve-tech";
+import { insertModelAliases } from "./model-annotations";
 
 export type PromoteFailure = "not_found" | "conflict" | "invalid";
 
@@ -29,6 +30,7 @@ export async function promoteMention(
   if (resolved.kind !== "attached") {
     return { ok: false, code: "invalid" };
   }
+  await insertModelAliases(db, resolved.techId, resolved.aliases);
   await db
     .prepare("DELETE FROM memo_mentions WHERE memo_id = ? AND name = ?")
     .bind(input.memoId, input.name)
