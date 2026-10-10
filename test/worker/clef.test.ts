@@ -121,8 +121,9 @@ describe("Clef の分類", () => {
       },
     });
     await expect(classifyTech(clefClassifier(decider), input)).resolves.toEqual({
-      kind: "existing",
-      subcategoryId: "sub-hono",
+      kind: "classified",
+      categoryId: "backend",
+      subcategories: [{ kind: "existing", subcategoryId: "sub-hono" }],
     });
     expect(model).toBe(CLEF_MODEL);
     expect(body.model).toBe("clef-flash");
