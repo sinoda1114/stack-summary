@@ -42,11 +42,8 @@ export async function relateSavedMemos(
         continue;
       }
       const key = relationPairKey(fromId, toId);
-      if (seen.has(key)) {
-        continue;
-      }
-      seen.add(key);
-      if (await relationPairExists(runner.db, fromId, toId)) {
+      if (seen.has(key) || (await relationPairExists(runner.db, fromId, toId))) {
+        seen.add(key);
         continue;
       }
       const kind = await judgeRelationKind(fallback, {
@@ -57,11 +54,15 @@ export async function relateSavedMemos(
       if (kind === "none") {
         continue;
       }
-      await insertTechRelation(runner.db, {
-        fromTechId: fromId,
-        toTechId: toId,
-        kind,
-      });
+      if (
+        await insertTechRelation(runner.db, {
+          fromTechId: fromId,
+          toTechId: toId,
+          kind,
+        })
+      ) {
+        seen.add(key);
+      }
     }
   }
 }

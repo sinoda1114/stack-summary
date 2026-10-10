@@ -66,7 +66,7 @@ async function findTag(
   if (match.name_key !== key) {
     try {
       await db
-        .prepare("UPDATE tags SET name_key = ? WHERE id = ? AND name_key IS NULL")
+        .prepare("UPDATE tags SET name_key = ? WHERE id = ?")
         .bind(key, match.id)
         .run();
     } catch (error) {

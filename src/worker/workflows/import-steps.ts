@@ -231,15 +231,23 @@ export async function classifyImportTechs(
             case "existing":
               subcategoryIds.push(subcategory.subcategoryId);
               break;
-            case "new":
-              subcategoryIds.push(
-                await upsertAiSubcategory(runner.db, {
+            case "new": {
+              const createdId = await upsertAiSubcategory(runner.db, {
+                categoryId: accepted.categoryId,
+                name: subcategory.name,
+                now: runner.now,
+              });
+              subcategoryIds.push(createdId);
+              if (!subcategories.some((row) => row.id === createdId)) {
+                subcategories.push({
+                  id: createdId,
                   categoryId: accepted.categoryId,
-                  name: subcategory.name,
-                  now: runner.now,
-                }),
-              );
+                  name: subcategory.name.trim(),
+                  examples: [],
+                });
+              }
               break;
+            }
             default: {
               const unexpected: never = subcategory;
               throw new Error(`未知の小分類です: ${String(unexpected)}`);
