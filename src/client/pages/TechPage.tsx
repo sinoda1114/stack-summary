@@ -106,6 +106,7 @@ export function TechPage() {
           />
           <Textarea label="理由" value={reason} onChange={(event) => setReason(event.currentTarget.value)} />
           <Button onClick={() => void save()}>保存</Button>
+          <MergeBox sourceId={params.id} />
         </Stack>
       )}
       <Stack>
@@ -119,3 +120,64 @@ export function TechPage() {
   );
 }
 
+function MergeBox(props: { sourceId: string | undefined }) {
+  const [intoId, setIntoId] = useState<string | null>(null);
+  const [options, setOptions] = useState<{ value: string; label: string }[]>([]);
+  const [needsChoice, setNeedsChoice] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    let current = true;
+    void requestJson<{ id: string; name: string }[]>("/api/techs").then((result) => {
+      if (!current) {
+        return;
+      }
+      if (!result.success || result.data === null) {
+        setNotice(result.error?.message ?? "技術一覧を取得できませんでした");
+        return;
+      }
+      setNotice(null);
+      setOptions(
+        result.data
+          .filter((tech) => tech.id !== props.sourceId)
+          .map((tech) => ({ value: tech.id, label: tech.name })),
+      );
+    });
+    return () => {
+      current = false;
+    };
+  }, [props.sourceId]);
+
+  async function merge(reasonChoice?: "into" | "source"): Promise<void> {
+    if (props.sourceId === undefined || intoId === null) {
+      return;
+    }
+    const result = await requestJson<{ intoId: string }>(`/api/techs/${props.sourceId}/merge`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ intoId, reasonChoice }),
+    });
+    if (!result.success) {
+      setNeedsChoice(result.error?.code === "reason_conflict");
+      setNotice(result.error?.message ?? "統合できませんでした");
+      return;
+    }
+    setNeedsChoice(false);
+    setNotice(null);
+  }
+
+  return (
+    <Stack>
+      {notice === null ? null : <Text>{notice}</Text>}
+      <Select label="統合先" data={options} value={intoId} onChange={setIntoId} />
+      <Button onClick={() => void merge()}>統合</Button>
+      {needsChoice ? (
+        <Stack>
+          <Text>残す理由を選んでください</Text>
+          <Button onClick={() => void merge("into")}>残す側の理由</Button>
+          <Button onClick={() => void merge("source")}>統合元の理由</Button>
+        </Stack>
+      ) : null}
+    </Stack>
+  );
+}

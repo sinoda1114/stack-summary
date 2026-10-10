@@ -24,6 +24,15 @@ export type TechDetail = {
   }[];
 };
 
+export async function listTechSummaries(
+  db: D1Database,
+): Promise<{ id: string; name: string; status: TechStatus }[]> {
+  const listed = await db
+    .prepare("SELECT id, name, status FROM techs ORDER BY name")
+    .all<{ id: string; name: string; status: TechStatus }>();
+  return listed.results;
+}
+
 export async function loadTechDetail(
   db: D1Database,
   id: string,

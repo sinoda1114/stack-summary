@@ -18,3 +18,19 @@ export function fail(code: string, message: string): ApiBody<null> {
 }
 
 export const FORBIDDEN_MESSAGE = "認証に失敗しました";
+
+export function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+export async function readRecord(request: Request): Promise<Record<string, unknown> | null> {
+  try {
+    const body: unknown = await request.json();
+    if (!isRecord(body)) {
+      return null;
+    }
+    return body;
+  } catch {
+    return null;
+  }
+}

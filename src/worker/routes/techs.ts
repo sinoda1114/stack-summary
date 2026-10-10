@@ -1,7 +1,9 @@
 import type { Hono } from "hono";
 import type { TechStatus } from "../../shared/labels";
-import { isTechStatus, loadTechDetail, patchTech } from "../db/tech-detail";
-import { fail, ok } from "../http";
+import { addUserAlias, deleteUserAlias } from "../db/aliases";
+import { mergeTech } from "../db/merge-tech";
+import { isTechStatus, listTechSummaries, loadTechDetail, patchTech } from "../db/tech-detail";
+import { fail, ok, readRecord } from "../http";
 
 type TechPatch = {
   status?: TechStatus;
@@ -13,6 +15,10 @@ type TechPatch = {
 const TAG_KINDS = ["topic", "vendor", "project"] as const;
 
 export function registerTechRoutes(app: Hono<{ Bindings: Env }>): void {
+  app.get("/api/techs", async (c) => {
+    return c.json(ok(await listTechSummaries(c.env.DB)));
+  });
+
   app.get("/api/techs/:id", async (c) => {
     const detail = await loadTechDetail(c.env.DB, c.req.param("id"));
     if (detail === null) {
@@ -43,6 +49,87 @@ export function registerTechRoutes(app: Hono<{ Bindings: Env }>): void {
     const detail = await loadTechDetail(c.env.DB, c.req.param("id"));
     return c.json(ok(detail));
   });
+
+  app.post("/api/techs/:id/merge", async (c) => {
+    const body = await readRecord(c.req.raw);
+    if (body === null || typeof body.intoId !== "string" || body.intoId.length === 0) {
+      return c.json(fail("invalid", "統合先がありません"), 400);
+    }
+    const reasonChoice = body.reasonChoice;
+    if (
+      reasonChoice !== undefined &&
+      reasonChoice !== "into" &&
+      reasonChoice !== "source"
+    ) {
+      return c.json(fail("invalid", "残す理由の指定が不正です"), 400);
+    }
+    const merged = await mergeTech(c.env.DB, {
+      sourceId: c.req.param("id"),
+      intoId: body.intoId,
+      reasonChoice,
+      now: new Date().toISOString(),
+    });
+    if (!merged.ok) {
+      return c.json(fail(merged.code, mergeMessage(merged.code)), mergeStatus(merged.code));
+    }
+    return c.json(ok({ intoId: body.intoId }));
+  });
+
+  app.post("/api/techs/:id/aliases", async (c) => {
+    const body = await readRecord(c.req.raw);
+    if (body === null || typeof body.alias !== "string") {
+      return c.json(fail("invalid", "別名がありません"), 400);
+    }
+    const added = await addUserAlias(c.env.DB, c.req.param("id"), body.alias);
+    if (!added.ok) {
+      const status = added.code === "alias_taken" ? 409 : added.code === "not_found" ? 404 : 400;
+      return c.json(fail(added.code, "別名を追加できません"), status);
+    }
+    return c.json(ok({ key: added.key }));
+  });
+
+  app.delete("/api/techs/:id/aliases/:key", async (c) => {
+    const removed = await deleteUserAlias(
+      c.env.DB,
+      c.req.param("id"),
+      c.req.param("key"),
+    );
+    if (!removed.ok) {
+      const status = removed.code === "not_found" ? 404 : 400;
+      return c.json(fail(removed.code, "別名を削除できません"), status);
+    }
+    return c.json(ok({ deleted: true }));
+  });
+}
+
+function mergeStatus(code: "self_merge" | "not_found" | "reason_conflict"): 400 | 404 | 409 {
+  switch (code) {
+    case "self_merge":
+      return 400;
+    case "not_found":
+      return 404;
+    case "reason_conflict":
+      return 409;
+    default: {
+      const unexpected: never = code;
+      throw new Error(`未知の統合結果です: ${String(unexpected)}`);
+    }
+  }
+}
+
+function mergeMessage(code: "self_merge" | "not_found" | "reason_conflict"): string {
+  switch (code) {
+    case "self_merge":
+      return "自分自身へは統合できません";
+    case "not_found":
+      return "技術が見つかりません";
+    case "reason_conflict":
+      return "残す理由を選んでください";
+    default: {
+      const unexpected: never = code;
+      throw new Error(`未知の統合結果です: ${String(unexpected)}`);
+    }
+  }
 }
 
 async function readPatch(

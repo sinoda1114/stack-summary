@@ -3,7 +3,9 @@ import { clientDocumentResponse, isClientDocumentPath } from "./client-document"
 import { fail, ok } from "./http";
 import { accessAuth } from "./middleware/access-auth";
 import { originCheck } from "./middleware/origin-check";
+import { registerCategoryRoutes } from "./routes/categories";
 import { registerImportRoutes } from "./routes/imports";
+import { registerInboxRoutes } from "./routes/inbox";
 import { registerOverviewRoutes } from "./routes/overview";
 import { registerSubcategoryRoutes } from "./routes/subcategories";
 import { registerTechRoutes } from "./routes/techs";
@@ -24,7 +26,9 @@ app.get("/api/health", (c) => {
   return c.json(ok({ ok: true }));
 });
 
+registerCategoryRoutes(app);
 registerImportRoutes(app);
+registerInboxRoutes(app);
 registerOverviewRoutes(app);
 registerTechRoutes(app);
 registerSubcategoryRoutes(app);

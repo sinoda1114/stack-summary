@@ -12,7 +12,7 @@ const CLIENT_DOCUMENT = `<!doctype html>
 </html>
 `;
 
-const EXACT_CLIENT_PATHS = new Set(["/imports"]);
+const EXACT_CLIENT_PATHS = new Set(["/imports", "/inbox", "/taxonomy"]);
 
 const CLIENT_PREFIXES = ["/techs/", "/subcategories/"];
 
