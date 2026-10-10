@@ -67,13 +67,14 @@ describe("取り込み", () => {
     expect(stored?.skippedCount).toBe(1);
     expect(stored?.memoCount).toBe(1);
     const tech = await env.DB.prepare(
-      "SELECT name, status, status_by, subcategory_id, classified_by FROM techs",
+      "SELECT name, status, status_by, subcategory_id, classified_by, prompt_version FROM techs",
     ).first<{
       name: string;
       status: string;
       status_by: string;
       subcategory_id: string;
       classified_by: string;
+      prompt_version: string;
     }>();
     expect(tech).toEqual({
       name: "Hono",
@@ -81,6 +82,7 @@ describe("取り込み", () => {
       status_by: "model",
       subcategory_id: "sub-hono",
       classified_by: "model",
+      prompt_version: "classify.v1",
     });
     const alias = await env.DB.prepare(
       "SELECT alias_key FROM tech_aliases WHERE alias_key = 'honojs'",
@@ -265,7 +267,6 @@ function runner(generator: StructuredGenerator): ImportRunner {
     db: env.DB,
     generator,
     model: "test-model",
-    promptVersion: "v1",
     now: NOW,
   };
 }

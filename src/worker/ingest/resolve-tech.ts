@@ -81,8 +81,10 @@ export function planTechResolution(
 export async function resolveExtractedTech(
   db: D1Database,
   input: ResolveExtractedTechInput,
+  options?: { writeAliases?: boolean },
 ): Promise<ResolveExtractedTechResult> {
   const { entries, discarded } = partitionAliases(input.name, input.aliases);
+  const writeAliases = options?.writeAliases !== false;
   switch (input.relation) {
     case "mention":
       return recordMention(db, input.memoId, input.name, discarded);
@@ -98,6 +100,7 @@ export async function resolveExtractedTech(
         },
         entries,
         discarded,
+        writeAliases,
       );
     default: {
       const unexpected: never = input.relation;
@@ -160,6 +163,7 @@ async function attachTech(
   },
   entries: readonly AliasEntry[],
   discarded: readonly string[],
+  writeAliases: boolean,
 ): Promise<ResolveExtractedTechResult> {
   const nameKey = aliasKey(input.name);
   const canonical = entries[0];
@@ -188,6 +192,7 @@ async function attachTech(
           canonical,
           plan,
           discarded,
+          writeAliases,
         });
         if (attached !== null) {
           return attached;
@@ -213,6 +218,7 @@ async function commitAttachment(
     canonical: AliasEntry;
     plan: Extract<TechResolutionPlan, { kind: "create" | "attach" }>;
     discarded: readonly string[];
+    writeAliases: boolean;
   },
 ): Promise<ResolveExtractedTechResult | null> {
   const techId =
@@ -222,9 +228,11 @@ async function commitAttachment(
       ...(input.plan.kind === "create"
         ? [techInsert(db, techId, input.canonical, input.now)]
         : []),
-      ...input.plan.aliasesToInsert.map((entry) =>
-        aliasInsert(db, entry, techId),
-      ),
+      ...(input.writeAliases
+        ? input.plan.aliasesToInsert.map((entry) =>
+            aliasInsert(db, entry, techId),
+          )
+        : []),
       linkInsert(db, input.memoId, techId, input.relation),
     ]);
   } catch (error) {

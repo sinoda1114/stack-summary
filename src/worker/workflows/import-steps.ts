@@ -1,4 +1,4 @@
-import { classifyTech } from "../ai/gemini-classifier";
+import { CLASSIFY_PROMPT_VERSION, classifyTech } from "../ai/gemini-classifier";
 import type { Classifier } from "../ai/classifier";
 import {
   InvalidModelOutput,
@@ -13,6 +13,7 @@ import {
   updateImport,
   type ImportRecord,
 } from "../db/imports";
+import { replaceModelAnnotations } from "../db/model-annotations";
 import { upsertSplitMemo, type SavedMemo } from "../db/memos";
 import { upsertTag } from "../db/tags";
 import {
@@ -36,7 +37,6 @@ export type ImportRunner = {
   db: D1Database;
   generator: StructuredGenerator;
   model: string;
-  promptVersion: string;
   now: string;
 };
 
@@ -104,13 +104,17 @@ export async function applyExtractions(
   const replacements: Replacement[] = [];
   for (const pair of pairs) {
     for (const tech of pair.extracted.techs) {
-      const resolved = await resolveExtractedTech(runner.db, {
-        memoId: pair.memo.id,
-        name: tech.name,
-        aliases: tech.aliases,
-        relation: tech.relation,
-        now: runner.now,
-      });
+      const resolved = await resolveExtractedTech(
+        runner.db,
+        {
+          memoId: pair.memo.id,
+          name: tech.name,
+          aliases: tech.aliases,
+          relation: tech.relation,
+          now: runner.now,
+        },
+        { writeAliases: false },
+      );
       if (resolved.discarded.length > 0) {
         notes.push(`捨てた候補: ${resolved.discarded.join(", ")}`);
       }
@@ -130,15 +134,17 @@ export async function applyExtractions(
           await upsertTag(runner.db, { name: tag.name, kind: tag.kind }),
         );
       }
-      replacements.push({
+      const replacement: Replacement = {
         memoId: pair.memo.id,
         techId: resolved.techId,
         aliases: aliasLabels(tech.name, tech.aliases),
         tagIds,
-      });
+      };
+      await replaceModelAnnotations(runner.db, [replacement], "aliases");
+      replacements.push(replacement);
     }
   }
-  await replaceModelRows(runner.db, replacements);
+  await replaceModelAnnotations(runner.db, replacements, "tags");
   return {
     techs: replacements.map((item) => ({
       techId: item.techId,
@@ -182,7 +188,7 @@ export async function classifyImportTechs(
           techId: item.techId,
           subcategoryId: accepted.subcategoryId,
           classifiedBy: "model",
-          promptVersion: runner.promptVersion,
+          promptVersion: CLASSIFY_PROMPT_VERSION,
           now: runner.now,
         });
         break;
@@ -196,7 +202,7 @@ export async function classifyImportTechs(
           techId: item.techId,
           subcategoryId,
           classifiedBy: "model",
-          promptVersion: runner.promptVersion,
+          promptVersion: CLASSIFY_PROMPT_VERSION,
           now: runner.now,
         });
         break;
@@ -206,7 +212,7 @@ export async function classifyImportTechs(
           techId: item.techId,
           subcategoryId: null,
           classifiedBy: null,
-          promptVersion: runner.promptVersion,
+          promptVersion: CLASSIFY_PROMPT_VERSION,
           now: runner.now,
         });
         break;
@@ -250,79 +256,6 @@ type Replacement = {
   aliases: { key: string; label: string }[];
   tagIds: string[];
 };
-
-async function replaceModelRows(
-  db: D1Database,
-  replacements: readonly Replacement[],
-): Promise<void> {
-  if (replacements.length === 0) {
-    return;
-  }
-  const statements: D1PreparedStatement[] = [];
-  const memoIds = [...new Set(replacements.map((item) => item.memoId))];
-  for (const memoId of memoIds) {
-    statements.push(
-      db
-        .prepare(
-          "DELETE FROM memo_tags WHERE memo_id = ? AND source = 'model'",
-        )
-        .bind(memoId),
-    );
-  }
-  for (const item of replacements) {
-    statements.push(
-      db
-        .prepare(
-          `DELETE FROM tech_aliases
-           WHERE tech_id = ?
-             AND source = 'model'
-             AND alias_key <> (SELECT name_key FROM techs WHERE id = ?)`,
-        )
-        .bind(item.techId, item.techId),
-    );
-    statements.push(
-      db
-        .prepare(
-          "DELETE FROM tech_tags WHERE tech_id = ? AND source = 'model'",
-        )
-        .bind(item.techId),
-    );
-  }
-  for (const item of replacements) {
-    for (const alias of item.aliases) {
-      statements.push(
-        db
-          .prepare(
-            `INSERT INTO tech_aliases (alias_key, alias, tech_id, source)
-             VALUES (?, ?, ?, 'model')
-             ON CONFLICT(alias_key) DO NOTHING`,
-          )
-          .bind(alias.key, alias.label, item.techId),
-      );
-    }
-    for (const tagId of item.tagIds) {
-      statements.push(
-        db
-          .prepare(
-            `INSERT INTO tech_tags (tech_id, tag_id, source)
-             VALUES (?, ?, 'model')
-             ON CONFLICT(tech_id, tag_id) DO NOTHING`,
-          )
-          .bind(item.techId, tagId),
-      );
-      statements.push(
-        db
-          .prepare(
-            `INSERT INTO memo_tags (memo_id, tag_id, source)
-             VALUES (?, ?, 'model')
-             ON CONFLICT(memo_id, tag_id) DO NOTHING`,
-          )
-          .bind(item.memoId, tagId),
-      );
-    }
-  }
-  await db.batch(statements);
-}
 
 function aliasLabels(
   name: string,
