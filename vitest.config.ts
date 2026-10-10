@@ -1,4 +1,4 @@
-import { cloudflareTest } from "@cloudflare/vitest-plugin";
+import { cloudflareTest, readD1Migrations } from "@cloudflare/vitest-plugin";
 import { defineConfig } from "vitest/config";
 
 process.env.OWNER_EMAIL ??= "owner@example.com";
@@ -9,16 +9,23 @@ const OWNER_EMAIL = "owner@example.com";
 
 export default defineConfig({
   plugins: [
-    cloudflareTest({
-      wrangler: { configPath: "./wrangler.jsonc" },
-      miniflare: {
-        bindings: {
-          ACCESS_TEAM_DOMAIN: TEAM_DOMAIN,
-          ACCESS_AUD: AUDIENCE,
-          OWNER_EMAIL,
-          APP_ORIGIN: "https://stack.example.com",
+    cloudflareTest(async () => {
+      const migrations = await readD1Migrations("migrations");
+      return {
+        wrangler: { configPath: "./wrangler.jsonc" },
+        miniflare: {
+          bindings: {
+            ACCESS_TEAM_DOMAIN: TEAM_DOMAIN,
+            ACCESS_AUD: AUDIENCE,
+            OWNER_EMAIL,
+            APP_ORIGIN: "https://stack.example.com",
+            TEST_MIGRATIONS: migrations,
+          },
         },
-      },
+      };
     }),
   ],
+  test: {
+    setupFiles: ["./test/apply-migrations.ts"],
+  },
 });

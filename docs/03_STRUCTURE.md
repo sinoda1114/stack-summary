@@ -150,7 +150,7 @@ line-send と共通の部分（Hono、React、Mantine、Vite、テスト）は�
 | 順 | 内容 | 完了の目安 | 対応 |
 | --- | --- | --- | --- |
 | 1 | 土台: 雛形、`.npmrc`、CI、Dependabot、Access JWT 検証。固定ユーザーは本番の Worker に入れない | CI が緑。JWT なしの `GET /api/health` が 403 | NFR-01 |
-| 2 | D1 マイグレーション（**スキーマ承認後**） | テーブルと大分類 9 個ができる | 02 §4 |
+| 2 | D1 マイグレーション（スキーマは `migrations/0001_init.sql`） | テーブルと大分類 9 個ができる | 02 §4 |
 | 3 | 正規化・重複判定・別名照合（Gemini なし） | 単体テストが通る | FR-04, FR-05, FR-12, FR-13 |
 | 4 | Gemini 呼び出しと 3 つの指示文（分割・抽出・分類） | モックで結合テストが通る | FR-03, FR-10, FR-11, FR-23 |
 | 5 | 評価: 正解付きサンプルで正答率を測り、指示文を調整 | 大分類の正答率 90%、小分類 80% を目安 | NFR-09 |
@@ -171,6 +171,15 @@ line-send と共通の部分（Hono、React、Mantine、Vite、テスト）は�
 - `wrangler types` が書く `worker-configuration.d.ts`
 
 `ci.yml` は `sinoda1114/ci-standard` の Node CI を呼ぶ。Dependabot は npm と github-actions を週次で見る。`wrangler.jsonc` は `workers_dev = false`、`preview_urls = false` とする。D1 バインディング、Gemini、画面、`origin-check.ts` は段階 1 に含めない。
+
+段階 2 で置くファイルは次のとおり。
+
+- `migrations/0001_init.sql`
+- `test/apply-migrations.ts`
+- `test/worker/schema.test.ts`
+- `wrangler.jsonc` の D1 バインディング `DB`（`migrations_dir` は `migrations`）
+
+段階 2 に Gemini、画面、取り込み Workflow は含めない。リモート D1 の `database_id` は本番配置の前に置く。
 
 ### 段階の注記
 
