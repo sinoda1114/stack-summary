@@ -13,7 +13,7 @@
    ▼
 ┌──────────────────── Cloudflare Workers（1 つの Worker）────────────────────┐
 │  静的配信: React + Mantine の画面（PWA）                                    │
-│  fetch: /api/*  Hono の JSON API（Access JWT を検証。無いものは 403）       │
+│  fetch: /api/*  Hono の JSON API（OWNER_EMAIL があるときは JWT。無いときはスキップ）│
 │         POST /api/imports ──▶ Workflow を起動                               │
 │  Workflow: 取り込み処理（分割 → 保存 → 抽出 → 照合 → 分類）                  │
 │            インスタンスの論理 ID は imports.id。各ステップは自然キーの upsert │
@@ -25,7 +25,7 @@
 | 要素 | 技術 | 役割 |
 | --- | --- | --- |
 | 実行基盤 | Cloudflare Workers | 画面・API・取り込み処理を 1 つの Worker で担う |
-| 認証 | Cloudflare Access + Worker での JWT 検証（`jose`） | 本人だけを通す。欠落は 403 |
+| 認証 | Cloudflare Access + Worker での JWT 検証（`jose`） | `OWNER_EMAIL` があるときは本人だけを通す。欠落は 403。無いときはスキップ |
 | API | Hono | ルーティング、入力検証。ルートは資源ごとにファイルを分ける |
 | 入力検証 | Zod | 画面・API・Gemini 出力で共通のスキーマ |
 | 取り込み処理 | Cloudflare Workflows（仮） | ステップごとの再試行と進み具合の記録。仮の見積もりは 1 日 3000 ステップ、呼び出しあたり CPU 10 ミリ秒。Queues の代替は作らない |
@@ -51,7 +51,7 @@
 
 指示文の版は環境変数にしない。記録する値は各ファイルの定数（`split.v1`、`extract.v1`、`classify.v1`）であり、環境変数の文字列では文面を選ばない。
 
-`wrangler` の設定で `workers_dev = false`、`preview_urls = false` とする。この 2 つは到達経路を狭めるだけで、認証の代わりにはしない。JWT が無い `/api` は、届いたリクエストを常に 403 にする（NFR-01）。
+`wrangler` の設定で `workers_dev = false`、`preview_urls = false` とする。この 2 つは到達経路を狭めるだけで、認証の代わりにはしない。`OWNER_EMAIL` があるとき、JWT が無い `/api` は 403 にする。`OWNER_EMAIL` が空、またはバインディングが無いときは認証をスキップし、その経路の JSON を返す（NFR-01）。
 
 ## 3. 状態と区分
 
@@ -260,17 +260,20 @@ CREATE TABLE tech_relations (
 ## 5. 認証
 
 1. Cloudflare Access のアプリケーションを独自ドメインに設定し、許可するのは `OWNER_EMAIL` だけにする。
-2. `/api` のリクエストは、`Cf-Access-Jwt-Assertion` ヘッダーの JWT を検証する。ヘッダーが無い、空、検証に失敗したリクエストは 403 にする。欠落を本人のメールへ読み替えない。
+2. `OWNER_EMAIL` があるとき、`/api` のリクエストは `Cf-Access-Jwt-Assertion` ヘッダーの JWT を検証する。ヘッダーが無い、空、検証に失敗したリクエストは 403 にする。欠落を本人のメールへ読み替えない。
 3. 検証は `jose` の `jwtVerify` で行う。公開鍵は `ACCESS_TEAM_DOMAIN/cdn-cgi/access/certs` から取り、コードに埋め込まない。次をすべて満たすこと。
    - 署名が Access の公開鍵と合う（アルゴリズムは RS256）
    - `iss` が `ACCESS_TEAM_DOMAIN` と一致する
    - `aud` が `ACCESS_AUD` と一致する
    - `exp` があり、検証時点で期限を過ぎていない
    - `email` があり、`OWNER_EMAIL` と小文字で一致する
-4. `ACCESS_TEAM_DOMAIN`、`ACCESS_AUD`、`OWNER_EMAIL` のいずれかが空なら、`/api` は 403 にする。設定ミスで素通りさせない。
+4. 認証の判定は次の一つだけである。
+   - `OWNER_EMAIL` が空、またはバインディングが無い: 認証をスキップし、その経路の JSON を返す。500 にはしない。
+   - `OWNER_EMAIL` があり、`ACCESS_TEAM_DOMAIN` と `ACCESS_AUD` が有効: JWT を検証する。`PREVIEW_OPEN` が `1` でもスキップしない。
+   - `OWNER_EMAIL` があり、チームドメインまたは AUD が空・不正: `PREVIEW_OPEN` が文字列 `1` のときだけ認証をスキップする。それ以外は 403 にする。
 5. 失敗の応答本文に、検証ライブラリのメッセージは出さない。共通の形で `forbidden` を返す。
 6. 状態を変える API（POST / PATCH / DELETE）は、`Origin` が `APP_ORIGIN` と一致することも確認する。段階 1 には状態を変える API が無いため、この確認は最初の更新 API の段階で足す。
-7. 固定ユーザー（JWT が無くても本人として通す分岐）は、本番の Worker に入れない。本番エントリ `src/worker/index.ts` から辿るモジュールに、その分岐を書かない。ローカル用の固定ユーザーを後から足す場合も、本番エントリのモジュールグラフの外に置く。
+7. 固定ユーザー（JWT が無くても特定のメールの本人として通す分岐）は、本番の Worker に入れない。`OWNER_EMAIL` が無いときのスキップは本人への読み替えではない。本番エントリ `src/worker/index.ts` から辿るモジュールに、固定ユーザーの分岐を書かない。ローカル用の固定ユーザーを後から足す場合も、本番エントリのモジュールグラフの外に置く。
 
 ## 6. 取り込み処理（Workflow）
 
@@ -435,7 +438,7 @@ ON CONFLICT (category_id, name) DO NOTHING;
 
 | メソッド・パス | 内容 |
 | --- | --- |
-| `GET /api/health` | 認証済みなら `{ ok: true }`。JWT が無ければ 403。段階 1 で実装する |
+| `GET /api/health` | `OWNER_EMAIL` が無いときは JWT 無しで `{ ok: true }`。あるときは認証済みなら `{ ok: true }`、JWT が無ければ 403 |
 | `GET /api/overview?status=&tag=&q=` | 全体図。大分類 → 小分類 → 技術（`id` `name` `status` `memoCount`）。小分類の無い技術は `ungrouped`。`q` は技術名、別名、理由。大分類は絞る前の小分類数 `subcategoryCount` を返す。一致しない小分類は省く。小分類が 1 つだけで `ungrouped` が空の大分類は、小分類名を返してよいが、画面は出さない（FR-27）。関連メモは `memo_date` の降順、空なら `created_at` の降順 |
 | `GET /api/techs` | 技術の一覧（`id` `name` `status`）。統合先の候補はここから取る |
 | `GET /api/techs/:id` | 技術の詳細（別名・タグ・関連メモを新しい順、最終更新日） |
@@ -499,7 +502,7 @@ Markdown は同じ表と同じ列を、見出しと行で書く。
 | ローカル | `vite dev` + ローカル D1。固定ユーザーを使う場合も、本番エントリのモジュールには入れない | 手動 |
 | Production | 独自ドメインの Workers + Access | main マージで自動デプロイ（NFR-12）。workflow は段階 10 で足す |
 
-Preview URL は無効にするため（§2）、確認はローカルで行う。無効化しても、JWT が無い `/api` は 403 のままである。
+Preview URL は無効にするため（§2）、確認はローカルで行う。`OWNER_EMAIL` があるとき、無効化しても JWT が無い `/api` は 403 のままである。
 
 ## 10. 検証仕様
 
@@ -511,15 +514,15 @@ Preview URL は無効にするため（§2）、確認はローカルで行う�
 | 関係の振り分け（主題・比較・言及）と格上げ（既定 `subject`、言及行の削除） | 結合テスト（モックの抽出結果を入力） | FR-10, FR-11, AC-04 |
 | 分類器の制約（大分類を作らない、実在しない ID と「その他」は未分類、upsert） | 単体テスト | FR-22, FR-23, FR-24, AC-07 |
 | 統合（自己統合の拒否、理由の衝突、分類を残してから削除、正式名を別名にする） | 結合テスト | FR-15, AC-13 |
-| Access JWT（無し、空、不正、別メール、別 aud、期限切れ、別の発行者、設定欠落） | 結合テスト | NFR-01, AC-10 |
+| Access JWT（無し、空、不正、別メール、別 aud、期限切れ、別の発行者、設定欠落は 403、`OWNER_EMAIL` 未設定は JSON、揃った設定にプレビューフラグがあっても 403） | 結合テスト | NFR-01, AC-10 |
 | リンクの安全な描画 | コンポーネントテスト | NFR-03 |
 | 書き出し | 結合テスト | FR-50, AC-12 |
 | 分類の正答率 | 評価スクリプト。正解付きサンプル 20〜30 件（ローカルのみ、コミットしない）。仮の目安は大分類 90%、小分類 80%。未達でも次の段階を止めない | NFR-09 |
-| 本番の認証 | デプロイ後、JWT 無しで独自ドメインと `*.workers.dev` にアクセスし、`/api` が 403 であることを確認 | AC-10 |
+| 本番の認証 | `OWNER_EMAIL` があるデプロイでは、JWT 無しの `/api` が 403 であることを確認する。無いデプロイでは 500 にせず JSON を返す | AC-10 |
 
 テストは Vitest と `@cloudflare/vitest-plugin` で行う。カバレッジ 80% 以上（NFR-09。閾値の強制は分類と画面が載ってからでよい。段階 1 は認証のテストが CI で通ることを完了とする）。
 
-段階 1 の完了は、CI が緑であること、JWT が無い `GET /api/health` が 403 であること、本番エントリに固定ユーザーの分岐が無いこと、である。
+段階 1 の完了は、CI が緑であること、`OWNER_EMAIL` があるとき JWT が無い `GET /api/health` が 403 であること、`OWNER_EMAIL` が無いときは 500 にせず JSON を返すこと、本番エントリに固定ユーザーの分岐が無いこと、である。
 
 段階 2 の完了は、マイグレーション適用後に仕様の表があり、大分類が 9 個入っていることである。
 

@@ -96,11 +96,70 @@ describe("GET /api/health", () => {
     }
   });
 
-  it("設定が欠けると、署名が合っていても 403", async () => {
+  it("OWNER_EMAIL が空なら認証を通さず JSON を返す", async () => {
     const token = await sign();
     const response = await call("/api/health", {
       token,
       env: { OWNER_EMAIL: "" },
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      success: true,
+      data: { ok: true },
+      error: null,
+    });
+  });
+
+  it("OWNER_EMAIL が未設定でも 500 にせず JSON を返す", async () => {
+    const response = await call("/api/health", {
+      env: { OWNER_EMAIL: undefined },
+    });
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type") ?? "").toContain("application/json");
+    expect(await response.json()).toEqual({
+      success: true,
+      data: { ok: true },
+      error: null,
+    });
+  });
+
+  it("プレビューフラグがあっても、Access 設定があるときは JWT が要る", async () => {
+    const response = await call("/api/health", {
+      env: { PREVIEW_OPEN: "1" },
+    });
+    expect(response.status).toBe(403);
+  });
+
+  it("OWNER_EMAIL があり Access 設定が欠け、プレビューフラグがあるときは JSON を返す", async () => {
+    const response = await call("/api/health", {
+      env: {
+        PREVIEW_OPEN: "1",
+        ACCESS_TEAM_DOMAIN: "",
+        ACCESS_AUD: "",
+      },
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      success: true,
+      data: { ok: true },
+      error: null,
+    });
+  });
+
+  it("OWNER_EMAIL があり Access 設定が欠け、プレビューフラグが無いときは 403", async () => {
+    const response = await call("/api/health", {
+      env: { ACCESS_TEAM_DOMAIN: "", ACCESS_AUD: "" },
+    });
+    expect(response.status).toBe(403);
+  });
+
+  it("プレビューフラグが 1 以外なら、Access 設定が欠けていても 403", async () => {
+    const response = await call("/api/health", {
+      env: {
+        PREVIEW_OPEN: "true",
+        ACCESS_TEAM_DOMAIN: "",
+        ACCESS_AUD: "",
+      },
     });
     expect(response.status).toBe(403);
   });
@@ -199,7 +258,7 @@ async function sign(options: SignOptions = {}): Promise<string> {
 
 async function call(
   path: string,
-  options: { token?: string; env?: Partial<Env> } = {},
+  options: { token?: string; env?: Partial<Env> & { PREVIEW_OPEN?: string } } = {},
 ): Promise<Response> {
   const headers = new Headers();
   if (options.token !== undefined) {
