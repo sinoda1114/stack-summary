@@ -366,6 +366,103 @@ describe("別名の照合と新機能の解決", () => {
       .first<{ tech_id: string }>();
     expect(link).toBeNull();
   });
+
+  it("同時に未知の別名を解決しても、メモを別名の持ち主以外へ結ばない", async () => {
+    const alphaMemo = await insertMemo("Alpha のメモ");
+    const betaMemo = await insertMemo("Beta のメモ");
+    const db = stallAliasReads(env.DB, 2);
+    const [alpha, beta] = await Promise.all([
+      resolveExtractedTech(db, {
+        memoId: alphaMemo,
+        name: "Alpha",
+        aliases: ["Shared"],
+        relation: "subject",
+        now: NOW,
+      }),
+      resolveExtractedTech(db, {
+        memoId: betaMemo,
+        name: "Beta",
+        aliases: ["Shared"],
+        relation: "subject",
+        now: NOW,
+      }),
+    ]);
+
+    expect(alpha.kind).toBe("attached");
+    expect(beta.kind).toBe("attached");
+    if (alpha.kind !== "attached" || beta.kind !== "attached") {
+      return;
+    }
+    expect(beta.techId).toBe(alpha.techId);
+    expect([alpha.created, beta.created].filter(Boolean)).toHaveLength(1);
+    expect(await techCount()).toBe(1);
+    await expectAliasesOwnedBy(alpha.techId, ["alpha", "beta", "shared"]);
+    expect(await linkedTechId(alphaMemo)).toBe(alpha.techId);
+    expect(await linkedTechId(betaMemo)).toBe(alpha.techId);
+  });
+
+  it("同時に同じ正式名を解決しても、1 つの技術に揃える", async () => {
+    const firstMemo = await insertMemo("先のメモ");
+    const secondMemo = await insertMemo("後のメモ");
+    const db = stallAliasReads(env.DB, 2);
+    const [first, second] = await Promise.all([
+      resolveExtractedTech(db, {
+        memoId: firstMemo,
+        name: "Cloudflare Workers",
+        aliases: [],
+        relation: "subject",
+        now: NOW,
+      }),
+      resolveExtractedTech(db, {
+        memoId: secondMemo,
+        name: "Cloudflare-Workers",
+        aliases: [],
+        relation: "comparison",
+        now: NOW,
+      }),
+    ]);
+
+    expect(first.kind).toBe("attached");
+    expect(second.kind).toBe("attached");
+    if (first.kind !== "attached" || second.kind !== "attached") {
+      return;
+    }
+    expect(second.techId).toBe(first.techId);
+    expect([first.created, second.created].filter(Boolean)).toHaveLength(1);
+    expect(await techCount()).toBe(1);
+    await expectAliasesOwnedBy(first.techId, ["cloudflareworkers"]);
+    expect(await linkedTechId(firstMemo)).toBe(first.techId);
+    expect(await linkedTechId(secondMemo)).toBe(first.techId);
+    const relations = await env.DB.prepare(
+      "SELECT memo_id, relation FROM memo_techs",
+    ).all<{ memo_id: string; relation: string }>();
+    expect(relations.results).toEqual(
+      expect.arrayContaining([
+        { memo_id: firstMemo, relation: "subject" },
+        { memo_id: secondMemo, relation: "comparison" },
+      ]),
+    );
+  });
+
+  it("メモが無い失敗では技術も別名も残さない", async () => {
+    await expect(
+      resolveExtractedTech(env.DB, {
+        memoId: crypto.randomUUID(),
+        name: "Hono",
+        aliases: ["HonoJS"],
+        relation: "subject",
+        now: NOW,
+      }),
+    ).rejects.toThrow();
+
+    expect(await techCount()).toBe(0);
+    const aliases = await env.DB.prepare(
+      "SELECT alias_key FROM tech_aliases",
+    ).all();
+    expect(aliases.results).toEqual([]);
+    const links = await env.DB.prepare("SELECT tech_id FROM memo_techs").all();
+    expect(links.results).toEqual([]);
+  });
 });
 
 describe("照合の決定", () => {
@@ -432,4 +529,78 @@ function attachedId(result: ResolveExtractedTechResult): string {
     throw new Error("技術に結び付きませんでした");
   }
   return result.techId;
+}
+
+function stallAliasReads(db: D1Database, readers: number): D1Database {
+  let remaining = readers;
+  let openGate: () => void = () => {};
+  const gate = new Promise<void>((resolve) => {
+    openGate = resolve;
+  });
+  const prepare = db.prepare.bind(db);
+
+  return new Proxy(db, {
+    get(target, property, receiver) {
+      if (property !== "prepare") {
+        const value: unknown = Reflect.get(target, property, receiver);
+        return typeof value === "function" ? value.bind(target) : value;
+      }
+      return (query: string) => {
+        const statement = prepare(query);
+        if (!query.includes("alias_key IN")) {
+          return statement;
+        }
+        return stallAliasStatement(statement, async () => {
+          remaining -= 1;
+          if (remaining === 0) {
+            openGate();
+          }
+          await gate;
+        });
+      };
+    },
+  });
+}
+
+function stallAliasStatement(
+  statement: D1PreparedStatement,
+  afterRead: () => Promise<void>,
+): D1PreparedStatement {
+  return new Proxy(statement, {
+    get(target, property, receiver) {
+      if (property === "bind") {
+        return (...values: readonly unknown[]) =>
+          stallAliasStatement(target.bind(...values), afterRead);
+      }
+      if (property === "all") {
+        return async () => {
+          const rows = await target.all();
+          await afterRead();
+          return rows;
+        };
+      }
+      return Reflect.get(target, property, receiver);
+    },
+  });
+}
+
+async function expectAliasesOwnedBy(
+  techId: string,
+  keys: readonly string[],
+): Promise<void> {
+  const aliases = await env.DB.prepare(
+    "SELECT alias_key, tech_id FROM tech_aliases ORDER BY alias_key",
+  ).all<{ alias_key: string; tech_id: string }>();
+  expect(aliases.results).toEqual(
+    keys.map((key) => ({ alias_key: key, tech_id: techId })),
+  );
+}
+
+async function linkedTechId(memoId: string): Promise<string | null> {
+  const link = await env.DB.prepare(
+    "SELECT tech_id FROM memo_techs WHERE memo_id = ?",
+  )
+    .bind(memoId)
+    .first<{ tech_id: string }>();
+  return link?.tech_id ?? null;
 }

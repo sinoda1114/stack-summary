@@ -148,6 +148,8 @@ async function recordMention(
   return { kind: "mention", name, discarded };
 }
 
+const CLAIM_ATTEMPTS = 3;
+
 async function attachTech(
   db: D1Database,
   input: {
@@ -165,65 +167,107 @@ async function attachTech(
     return { kind: "discarded", discarded };
   }
 
+  // 読みと書きは別々なので、同時の作成は一意制約に負けた側を戻してから照合し直す。
+  for (let attempt = 0; attempt < CLAIM_ATTEMPTS; attempt++) {
+    const hits = await aliasHits(
+      db,
+      entries.map((entry) => entry.key),
+    );
+    const plan = planTechResolution(entries, hits);
+    switch (plan.kind) {
+      case "discarded":
+        return { kind: "discarded", discarded };
+      case "conflict":
+        return { kind: "conflict", techIds: plan.techIds, discarded };
+      case "create":
+      case "attach": {
+        const attached = await commitAttachment(db, {
+          memoId: input.memoId,
+          now: input.now,
+          relation: input.relation,
+          canonical,
+          plan,
+          entries,
+          discarded,
+        });
+        if (attached !== null) {
+          return attached;
+        }
+        break;
+      }
+      default: {
+        const unexpected: never = plan;
+        throw new Error(`未知の照合です: ${String(unexpected)}`);
+      }
+    }
+  }
+
   const hits = await aliasHits(
     db,
     entries.map((entry) => entry.key),
   );
   const plan = planTechResolution(entries, hits);
-  switch (plan.kind) {
-    case "discarded":
-      return { kind: "discarded", discarded };
-    case "conflict":
-      return { kind: "conflict", techIds: plan.techIds, discarded };
-    case "create": {
-      const createdTech = await createTech(db, canonical, input.now);
-      return finishAttachment(db, {
-        memoId: input.memoId,
-        techId: createdTech.techId,
-        created: createdTech.created,
-        relation: input.relation,
-        aliasesToInsert: plan.aliasesToInsert,
-        discarded,
-      });
-    }
-    case "attach":
-      return finishAttachment(db, {
-        memoId: input.memoId,
-        techId: plan.techId,
-        created: false,
-        relation: input.relation,
-        aliasesToInsert: plan.aliasesToInsert,
-        discarded,
-      });
-    default: {
-      const unexpected: never = plan;
-      throw new Error(`未知の照合です: ${String(unexpected)}`);
-    }
+  if (plan.kind === "conflict") {
+    return { kind: "conflict", techIds: plan.techIds, discarded };
   }
+  if (plan.kind === "discarded") {
+    return { kind: "discarded", discarded };
+  }
+  throw new Error("別名の照合を確定できませんでした");
 }
 
-async function finishAttachment(
+async function commitAttachment(
   db: D1Database,
   input: {
     memoId: string;
-    techId: string;
-    created: boolean;
+    now: string;
     relation: TechRelation;
-    aliasesToInsert: readonly AliasEntry[];
+    canonical: AliasEntry;
+    plan: Extract<TechResolutionPlan, { kind: "create" | "attach" }>;
+    entries: readonly AliasEntry[];
     discarded: readonly string[];
   },
-): Promise<ResolveExtractedTechResult> {
-  await db.batch([
-    ...input.aliasesToInsert.map((entry) =>
-      aliasInsert(db, entry, input.techId),
-    ),
-    linkInsert(db, input.memoId, input.techId, input.relation),
-  ]);
+): Promise<ResolveExtractedTechResult | null> {
+  const creating = input.plan.kind === "create";
+  const techId =
+    input.plan.kind === "create" ? crypto.randomUUID() : input.plan.techId;
+  let wroteLink = false;
+  try {
+    const results = await db.batch([
+      ...(creating
+        ? [techInsert(db, techId, input.canonical, input.now)]
+        : []),
+      ...input.plan.aliasesToInsert.map((entry) =>
+        aliasInsert(db, entry, techId),
+      ),
+      linkInsert(db, input.memoId, techId, input.relation),
+    ]);
+    wroteLink = results.at(-1)?.meta.changes === 1;
+  } catch (error) {
+    if (!isLostClaim(error)) {
+      throw error;
+    }
+    return null;
+  }
+
+  const hits = await aliasHits(
+    db,
+    input.entries.map((entry) => entry.key),
+  );
+  if (input.entries.some((entry) => hits.get(entry.key) !== techId)) {
+    await releaseMismatchedClaim(db, {
+      creating,
+      techId,
+      memoId: input.memoId,
+      wroteLink,
+    });
+    return null;
+  }
   return {
     kind: "attached",
-    techId: input.techId,
-    relation: await storedRelation(db, input.memoId, input.techId),
-    created: input.created,
+    techId,
+    relation: await storedRelation(db, input.memoId, techId),
+    created: creating,
     discarded: input.discarded,
   };
 }
@@ -268,32 +312,19 @@ async function storedRelation(
   throw new Error("メモと技術の関係を読めませんでした");
 }
 
-async function createTech(
+function techInsert(
   db: D1Database,
+  techId: string,
   entry: AliasEntry,
   now: string,
-): Promise<{ techId: string; created: boolean }> {
-  const id = crypto.randomUUID();
-  const inserted = await db
+): D1PreparedStatement {
+  return db
     .prepare(
       `INSERT INTO techs (
          id, name, name_key, subcategory_id, status, status_by, created_at, updated_at
-       ) VALUES (?, ?, ?, NULL, 'unrated', 'model', ?, ?)
-       ON CONFLICT(name_key) DO NOTHING`,
+       ) VALUES (?, ?, ?, NULL, 'unrated', 'model', ?, ?)`,
     )
-    .bind(id, entry.label, entry.key, now, now)
-    .run();
-  const row = await db
-    .prepare("SELECT id FROM techs WHERE name_key = ?")
-    .bind(entry.key)
-    .first<{ id: string }>();
-  if (row === null) {
-    throw new Error("技術を作成できませんでした");
-  }
-  return {
-    techId: row.id,
-    created: inserted.meta.changes === 1 && row.id === id,
-  };
+    .bind(techId, entry.label, entry.key, now, now);
 }
 
 function aliasInsert(
@@ -304,10 +335,48 @@ function aliasInsert(
   return db
     .prepare(
       `INSERT INTO tech_aliases (alias_key, alias, tech_id, source)
-       VALUES (?, ?, ?, 'model')
-       ON CONFLICT(alias_key) DO NOTHING`,
+       VALUES (?, ?, ?, 'model')`,
     )
     .bind(entry.key, entry.label, techId);
+}
+
+function isLostClaim(error: unknown): boolean {
+  const text = errorText(error);
+  return (
+    text.includes("UNIQUE constraint failed: techs.name_key") ||
+    text.includes("UNIQUE constraint failed: tech_aliases.alias_key")
+  );
+}
+
+function errorText(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return "";
+  }
+  const cause = error.cause;
+  const nested = cause instanceof Error ? cause.message : "";
+  return `${error.message}\n${nested}`;
+}
+
+async function releaseMismatchedClaim(
+  db: D1Database,
+  input: {
+    creating: boolean;
+    techId: string;
+    memoId: string;
+    wroteLink: boolean;
+  },
+): Promise<void> {
+  if (input.creating) {
+    await db.prepare("DELETE FROM techs WHERE id = ?").bind(input.techId).run();
+    return;
+  }
+  if (!input.wroteLink) {
+    return;
+  }
+  await db
+    .prepare("DELETE FROM memo_techs WHERE memo_id = ? AND tech_id = ?")
+    .bind(input.memoId, input.techId)
+    .run();
 }
 
 function linkInsert(
