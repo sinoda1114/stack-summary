@@ -113,11 +113,11 @@ stack-summary/
 | §2 設定値 | `src/worker/env.ts`、`wrangler.jsonc`、`.dev.vars.example` |
 | §3 状態と区分 | `src/shared/schema.ts`、`src/shared/labels.ts` |
 | §4 データ構造 | `migrations/0001_init.sql`、`src/worker/db/*` |
-| §4.1 自然キー、§6.2 原文、§6.4 別名キー、§6.5 URL 集合 | `src/worker/ingest/normalize.ts`、`src/worker/ingest/resolve-tech.ts` |
+| §4.1 自然キー、§6.2 原文、§6.4 別名キー、§6.5 URL 集合 | `src/worker/ingest/normalize.ts`、`src/worker/ingest/resolve-tech.ts`、`src/worker/ingest/name-candidates.ts`、`src/worker/ai/clef-name-match.ts` |
 | §5 認証 | `src/worker/middleware/access-auth.ts`。`origin-check.ts` は状態を変える API の段階 |
 | §6 取り込み処理 | `src/worker/workflows/import-workflow.ts` |
 | §6.8 Gemini の呼び出し | `src/worker/ai/gemini.ts`、`split-memos.ts`、`extract-techs.ts`、`inquire.ts`、`prompts/*` |
-| §6.7 分類器 | `src/worker/ai/classifier.ts`、`gemini-classifier.ts`、`prompts/classify.v1.ts` |
+| §6.7 分類器 | `src/worker/ai/classifier.ts`、`clef-classifier.ts`、`clef.ts`、`chat-route.ts`、`gemini-classifier.ts`、`prompts/classify.v1.ts` |
 | §6.10 統合、§6.6 格上げ | `src/worker/routes/techs.ts`、`src/worker/db/merge-tech.ts`、`src/worker/routes/mentions.ts`、`src/worker/db/promote-mention.ts` |
 | §7 メモ検索、書き出し | `src/worker/routes/memos.ts`、`src/worker/db/memo-search.ts`、`src/worker/routes/export.ts`、`src/worker/db/export-data.ts` |
 | §7 JSON API | `src/worker/routes/*`、`src/client/api.ts`。資源ごとにファイルを分ける |
@@ -204,5 +204,5 @@ line-send と共通の部分（Hono、React、Mantine、Vite、テスト）は�
 - 01 の FR-01〜51、NFR-01〜12 は、すべて 02 §11 で仕様に対応づけた。
 - 02 の各節は、すべて本書 §2 で担当ファイルに対応づけた。段階 1 でまだ置かないファイルは、§4 の順で足す。
 - 用語（メモ・技術・大分類・小分類・タグ・状態・関係・出所・確定）は 01 §5 の定義で統一した。
-- 初版の対象外（構成セット、Discord 投稿、意味検索、リンク先の取得、判断モデル、原文の削除、`parent_tech_id`）は、02・03 に実装を含めていない。判断モデルは `Classifier` インターフェースで差し替え口だけを用意した。タグ表と、API の資源ごとのルート分割は残した。
+- 初版の対象外（構成セット、Discord 投稿、意味検索、リンク先の取得、原文の削除、`parent_tech_id`）は、02・03 に実装を含めていない。判断モデルは `Classifier` を実装した Clef である。タグ表と、API の資源ごとのルート分割は残した。
 - 検討のうち、利用枠・文字数上限・Workflows の枠は仮値で 01 §10 に書いた。書き出しのキー、関連メモの順、失敗メモの表示、技術詳細の URL、分類の例の確定と確信度は未決のままである。正答率の 90% と 80% は仮の目安である。

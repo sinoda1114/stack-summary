@@ -44,5 +44,10 @@
       "database_name": "stack-summary",
       "migrations_dir": "migrations"
     }
-  ]
+  ],
+  // Workers AI。決定は @cf/cloudflare/clef-flash。秘密情報は要らない。
+  "ai": {
+    "binding": "AI",
+    "remote": true
+  }
 }

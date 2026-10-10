@@ -1,3 +1,6 @@
+import { routeChatQuestion } from "./chat-route";
+import type { ClefDecider } from "./clef";
+
 export type ChatIntent = "stack" | "usage" | "out_of_scope";
 
 export type ChatRouter = {
@@ -15,14 +18,25 @@ const USAGE_REPLY = [
 const OUT_OF_SCOPE_REPLY =
   "対象外です。取り込んだメモと技術、またはこのアプリの使い方について聞いてください。";
 
-// 振り分けは後からこの定数へ渡す。Clef の実装は置かない。
+// 定数は束ねを持たない。問い合わせはリクエストの AI で clefChatRouter を渡す。
 export const chatRouter: ChatRouter | null = null;
 
-export async function routedChatAnswer(question: string): Promise<string | null> {
-  if (chatRouter === null) {
+export function clefChatRouter(decider: ClefDecider): ChatRouter {
+  return {
+    route(question) {
+      return routeChatQuestion(decider, question);
+    },
+  };
+}
+
+export async function routedChatAnswer(
+  question: string,
+  router: ChatRouter | null = chatRouter,
+): Promise<string | null> {
+  if (router === null) {
     return null;
   }
-  return answerForIntent(await chatRouter.route(question));
+  return answerForIntent(await router.route(question));
 }
 
 function answerForIntent(intent: ChatIntent): string | null {

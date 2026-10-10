@@ -20,6 +20,7 @@ export type AcceptedClassification =
   | { kind: "unclassified" };
 
 export type Classifier = {
+  version: string;
   classify(input: ClassifierInput): Promise<ClassificationProposal>;
 };
 
@@ -77,4 +78,12 @@ export function acceptClassification(
       throw new Error(`未知の分類提案です: ${String(unexpected)}`);
     }
   }
+}
+
+export async function classifyTech(
+  classifier: Classifier,
+  input: ClassifierInput,
+): Promise<AcceptedClassification> {
+  const proposal = await classifier.classify(input);
+  return acceptClassification(proposal, input);
 }

@@ -5,7 +5,14 @@ import {
   type StructuredGenerateRequest,
   type StructuredGenerator,
 } from "../../src/worker/ai/model-output";
+import type { Classifier } from "../../src/worker/ai/classifier";
+import type { ClefDecider } from "../../src/worker/ai/clef";
+import {
+  CLEF_CLASSIFY_VERSION,
+  clefClassifier,
+} from "../../src/worker/ai/clef-classifier";
 import { findImportById, insertQueuedImport, updateImport } from "../../src/worker/db/imports";
+import { loadOverview } from "../../src/worker/db/overview";
 import { aliasKey } from "../../src/worker/ingest/normalize";
 import {
   createImport,
@@ -47,9 +54,12 @@ describe("取り込み", () => {
     const script = scripted([
       splitBody("Hono がよい https://hono.dev", 1),
       extractBody("Hono", "subject", ["honojs"], "Cloudflare"),
-      classifyExisting("sub-hono"),
     ]);
-    await executeImport(step, runner(script.generator), importId);
+    await executeImport(
+      step,
+      runner(script.generator, clefClassifier(choiceDecider("sub-hono"))),
+      importId,
+    );
 
     expect(step.configs.every((config) => config.retries.limit === 3)).toBe(true);
     expect(IMPORT_STEP_RETRY.retries).toEqual({
@@ -77,7 +87,7 @@ describe("取り込み", () => {
       status_by: "model",
       subcategory_id: "sub-hono",
       classified_by: "model",
-      prompt_version: "classify.v1",
+      prompt_version: CLEF_CLASSIFY_VERSION,
     });
     const alias = await env.DB.prepare(
       "SELECT alias_key FROM tech_aliases WHERE alias_key = 'honojs'",
@@ -86,8 +96,15 @@ describe("取り込み", () => {
     expect(script.requests.map((request) => request.model)).toEqual([
       "test-model-heavy",
       "test-model-light",
-      "test-model-light",
     ]);
+    const overview = await loadOverview(env.DB, {
+      status: null,
+      tag: null,
+      q: null,
+    });
+    const backend = overview.find((category) => category.id === "backend");
+    const group = backend?.subcategories.find((item) => item.id === "sub-hono");
+    expect(group?.techs.map((item) => item.name)).toEqual(["Hono"]);
   });
 
   it("本文があるメモの URL が重なっても同一にせず、似たメモにする", async () => {
@@ -381,13 +398,43 @@ describe("取り込み", () => {
   });
 });
 
-function runner(generator: StructuredGenerator): ImportRunner {
+function runner(
+  generator: StructuredGenerator,
+  classifier: Classifier = unclassifiedClassifier(),
+): ImportRunner {
   return {
     db: env.DB,
     generator,
     modelLight: "test-model-light",
     modelHeavy: "test-model-heavy",
     now: NOW,
+    classifier,
+  };
+}
+
+function unclassifiedClassifier(): Classifier {
+  return {
+    version: CLEF_CLASSIFY_VERSION,
+    async classify() {
+      return { kind: "unclassified", confidence: 0 };
+    },
+  };
+}
+
+function choiceDecider(subcategory: string): ClefDecider {
+  return {
+    async decide() {
+      return {
+        answers: {
+          subcategory: {
+            type: "choice",
+            choice: subcategory,
+            probabilities: { [subcategory]: 1 },
+            confidence: 0.8,
+          },
+        },
+      };
+    },
   };
 }
 

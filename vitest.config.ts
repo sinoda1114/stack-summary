@@ -13,6 +13,8 @@ export default defineConfig({
     cloudflareTest(async () => {
       const migrations = await readD1Migrations("migrations");
       return {
+        // Workers AI は手元の模擬が無い。テストは決定器を差し込むので、遠隔の束ねは開かない。
+        remoteBindings: false,
         wrangler: { configPath: "./wrangler.jsonc" },
         miniflare: {
           bindings: {

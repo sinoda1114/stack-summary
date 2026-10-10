@@ -10,6 +10,7 @@ export type ResolveExtractedTechInput = {
   aliases: readonly string[];
   relation: ExtractedRelation;
   now: string;
+  nearTechId?: string;
 };
 
 export type ResolveExtractedTechResult =
@@ -18,6 +19,9 @@ export type ResolveExtractedTechResult =
       techId: string;
       relation: TechRelation;
       created: boolean;
+      near: boolean;
+      name: string;
+      nameKey: string;
       discarded: readonly string[];
       aliases: readonly AliasEntry[];
     }
@@ -79,6 +83,27 @@ export function planTechResolution(
   return { kind: "attach", techId, aliasesToInsert };
 }
 
+export async function previewExtractedAliases(
+  db: D1Database,
+  name: string,
+  aliases: readonly string[],
+): Promise<{
+  entries: AliasEntry[];
+  discarded: string[];
+  plan: TechResolutionPlan;
+}> {
+  const partitioned = partitionAliases(name, aliases);
+  const hits = await aliasHits(
+    db,
+    partitioned.entries.map((entry) => entry.key),
+  );
+  return {
+    entries: partitioned.entries,
+    discarded: partitioned.discarded,
+    plan: planTechResolution(partitioned.entries, hits),
+  };
+}
+
 export async function resolveExtractedTech(
   db: D1Database,
   input: ResolveExtractedTechInput,
@@ -96,6 +121,7 @@ export async function resolveExtractedTech(
           name: input.name,
           now: input.now,
           relation: input.relation,
+          nearTechId: input.nearTechId,
         },
         entries,
         discarded,
@@ -158,6 +184,7 @@ async function attachTech(
     name: string;
     now: string;
     relation: TechRelation;
+    nearTechId?: string;
   },
   entries: readonly AliasEntry[],
   discarded: readonly string[],
@@ -182,16 +209,20 @@ async function attachTech(
         return { kind: "conflict", techIds: plan.techIds, discarded };
       case "create":
       case "attach": {
+        const planned = pinNearTech(plan, input.nearTechId);
         const attached = await commitAttachment(db, {
           memoId: input.memoId,
           now: input.now,
           relation: input.relation,
           canonical,
-          plan,
+          plan: planned,
           discarded,
         });
-        if (attached !== null) {
-          return attached;
+        if (attached !== null && attached.kind === "attached") {
+          return {
+            ...attached,
+            near: plan.kind === "create" && planned.kind === "attach",
+          };
         }
         break;
       }
@@ -203,6 +234,20 @@ async function attachTech(
   }
 
   throw new Error("別名の照合を確定できませんでした");
+}
+
+function pinNearTech(
+  plan: Extract<TechResolutionPlan, { kind: "create" | "attach" }>,
+  nearTechId: string | undefined,
+): Extract<TechResolutionPlan, { kind: "create" | "attach" }> {
+  if (plan.kind !== "create" || nearTechId === undefined) {
+    return plan;
+  }
+  return {
+    kind: "attach",
+    techId: nearTechId,
+    aliasesToInsert: plan.aliasesToInsert,
+  };
 }
 
 async function commitAttachment(
@@ -234,11 +279,21 @@ async function commitAttachment(
     }
     return null;
   }
+  const named = await db
+    .prepare("SELECT name, name_key FROM techs WHERE id = ?")
+    .bind(techId)
+    .first<{ name: string; name_key: string }>();
+  if (named === null) {
+    return null;
+  }
   return {
     kind: "attached",
     techId,
+    name: named.name,
+    nameKey: named.name_key,
     relation: await storedRelation(db, input.memoId, techId),
     created: input.plan.kind === "create",
+    near: false,
     discarded: input.discarded,
     aliases: input.plan.aliasesToInsert,
   };
