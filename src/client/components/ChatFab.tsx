@@ -40,6 +40,10 @@ export function ChatFab() {
       return;
     }
     list.scrollTop = list.scrollHeight;
+    const panel = list.closest(".chat-panel");
+    if (panel instanceof HTMLElement) {
+      panel.scrollTop = panel.scrollHeight;
+    }
   }, [messages, pending, open]);
 
   async function send(): Promise<void> {
