@@ -20,7 +20,7 @@ export default defineConfig({
       ACCESS_TEAM_DOMAIN: bindings.text(""),
       ACCESS_AUD: bindings.text(""),
       APP_ORIGIN: bindings.text(""),
-      GEMINI_MODEL: bindings.text("gemini-flash-latest"),
+      GEMINI_MODEL: bindings.text("gemini-flash-lite-latest"),
       IMPORT_MAX_CHARS: bindings.text("50000"),
       PREVIEW_OPEN: bindings.text("1"),
       DB: bindings.d1({
