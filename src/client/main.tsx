@@ -3,6 +3,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes } from "react-router";
 import { AppNav } from "./components/AppNav";
+import { ChatFab } from "./components/ChatFab";
 import { ExportPage } from "./pages/ExportPage";
 import { ImportPage } from "./pages/ImportPage";
 import { InboxPage } from "./pages/InboxPage";
@@ -42,6 +43,7 @@ createRoot(root).render(
             <Route path="/subcategories/:id" element={<SubcategoryPage />} />
           </Routes>
         </div>
+        <ChatFab />
       </BrowserRouter>
     </MantineProvider>
   </StrictMode>,

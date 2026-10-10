@@ -1,3 +1,5 @@
+import type { ChatTurn } from "../shared/chat";
+
 export type ApiError = {
   code: string;
   message: string;
@@ -17,6 +19,14 @@ export type ImportItem = {
   createdAt: string;
   updatedAt: string;
 };
+
+export function askChat(messages: ChatTurn[]): Promise<ApiResult<{ reply: string }>> {
+  return requestJson<{ reply: string }>("/api/chat", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ messages }),
+  });
+}
 
 export async function listImports(): Promise<ApiResult<ImportItem[]>> {
   return requestJson<ImportItem[]>("/api/imports");
