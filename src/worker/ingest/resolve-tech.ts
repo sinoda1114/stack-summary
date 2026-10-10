@@ -28,12 +28,55 @@ export type ResolveExtractedTechResult =
   | {
       kind: "discarded";
       discarded: readonly string[];
+    }
+  | {
+      kind: "conflict";
+      techIds: readonly string[];
+      discarded: readonly string[];
     };
 
-type AliasEntry = {
+export type TechResolutionPlan =
+  | { kind: "discarded" }
+  | { kind: "conflict"; techIds: readonly string[] }
+  | { kind: "create"; aliasesToInsert: readonly AliasEntry[] }
+  | {
+      kind: "attach";
+      techId: string;
+      aliasesToInsert: readonly AliasEntry[];
+    };
+
+export type AliasEntry = {
   key: string;
   label: string;
 };
+
+export function planTechResolution(
+  entries: readonly AliasEntry[],
+  hits: ReadonlyMap<string, string>,
+): TechResolutionPlan {
+  if (entries.length === 0) {
+    return { kind: "discarded" };
+  }
+  const techIds: string[] = [];
+  const seen = new Set<string>();
+  for (const entry of entries) {
+    const techId = hits.get(entry.key);
+    if (techId === undefined || seen.has(techId)) {
+      continue;
+    }
+    seen.add(techId);
+    techIds.push(techId);
+  }
+  if (techIds.length > 1) {
+    return { kind: "conflict", techIds };
+  }
+  const aliasesToInsert = entries.filter((entry) => !hits.has(entry.key));
+  const techId = techIds[0];
+  if (techId === undefined) {
+    return { kind: "create", aliasesToInsert };
+  }
+  return { kind: "attach", techId, aliasesToInsert };
+}
 
 export async function resolveExtractedTech(
   db: D1Database,
@@ -126,23 +169,62 @@ async function attachTech(
     db,
     entries.map((entry) => entry.key),
   );
-  const existing = matchedTechId(entries, hits);
-  const { techId, created } =
-    existing === null
-      ? await createTech(db, canonical, input.now)
-      : { techId: existing, created: false };
+  const plan = planTechResolution(entries, hits);
+  switch (plan.kind) {
+    case "discarded":
+      return { kind: "discarded", discarded };
+    case "conflict":
+      return { kind: "conflict", techIds: plan.techIds, discarded };
+    case "create": {
+      const createdTech = await createTech(db, canonical, input.now);
+      return finishAttachment(db, {
+        memoId: input.memoId,
+        techId: createdTech.techId,
+        created: createdTech.created,
+        relation: input.relation,
+        aliasesToInsert: plan.aliasesToInsert,
+        discarded,
+      });
+    }
+    case "attach":
+      return finishAttachment(db, {
+        memoId: input.memoId,
+        techId: plan.techId,
+        created: false,
+        relation: input.relation,
+        aliasesToInsert: plan.aliasesToInsert,
+        discarded,
+      });
+    default: {
+      const unexpected: never = plan;
+      throw new Error(`未知の照合です: ${String(unexpected)}`);
+    }
+  }
+}
 
+async function finishAttachment(
+  db: D1Database,
+  input: {
+    memoId: string;
+    techId: string;
+    created: boolean;
+    relation: TechRelation;
+    aliasesToInsert: readonly AliasEntry[];
+    discarded: readonly string[];
+  },
+): Promise<ResolveExtractedTechResult> {
   await db.batch([
-    ...entries.map((entry) => aliasInsert(db, entry, techId)),
-    linkInsert(db, input.memoId, techId, input.relation),
+    ...input.aliasesToInsert.map((entry) =>
+      aliasInsert(db, entry, input.techId),
+    ),
+    linkInsert(db, input.memoId, input.techId, input.relation),
   ]);
-
   return {
     kind: "attached",
-    techId,
-    relation: input.relation,
-    created,
-    discarded,
+    techId: input.techId,
+    relation: await storedRelation(db, input.memoId, input.techId),
+    created: input.created,
+    discarded: input.discarded,
   };
 }
 
@@ -169,17 +251,21 @@ async function aliasHits(
   return hits;
 }
 
-function matchedTechId(
-  entries: readonly AliasEntry[],
-  hits: ReadonlyMap<string, string>,
-): string | null {
-  for (const entry of entries) {
-    const techId = hits.get(entry.key);
-    if (techId !== undefined) {
-      return techId;
-    }
+async function storedRelation(
+  db: D1Database,
+  memoId: string,
+  techId: string,
+): Promise<TechRelation> {
+  const row = await db
+    .prepare(
+      "SELECT relation FROM memo_techs WHERE memo_id = ? AND tech_id = ?",
+    )
+    .bind(memoId, techId)
+    .first<{ relation: string }>();
+  if (row?.relation === "subject" || row?.relation === "comparison") {
+    return row.relation;
   }
-  return null;
+  throw new Error("メモと技術の関係を読めませんでした");
 }
 
 async function createTech(

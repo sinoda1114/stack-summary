@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
+  planTechResolution,
   resolveExtractedTech,
   type ResolveExtractedTechResult,
 } from "../../src/worker/ingest/resolve-tech";
@@ -238,6 +239,10 @@ describe("別名の照合と新機能の解決", () => {
       now: NOW,
     });
     expect(attachedId(second)).toBe(attachedId(first));
+    if (second.kind !== "attached") {
+      return;
+    }
+    expect(second.relation).toBe("comparison");
     const links = await env.DB.prepare(
       "SELECT relation FROM memo_techs WHERE memo_id = ?",
     )
@@ -320,7 +325,7 @@ describe("別名の照合と新機能の解決", () => {
     });
   });
 
-  it("正式名が既存技術に当たるとき、別技術の別名は奪わない", async () => {
+  it("別名が別々の技術に当たるときは、技術も関係も書かない", async () => {
     const alpha = await resolveExtractedTech(env.DB, {
       memoId: await insertMemo(),
       name: "Alpha",
@@ -344,7 +349,11 @@ describe("別名の照合と新機能の解決", () => {
       now: NOW,
     });
 
-    expect(attachedId(resolved)).toBe(attachedId(alpha));
+    expect(resolved).toEqual({
+      kind: "conflict",
+      techIds: [attachedId(alpha), attachedId(beta)],
+      discarded: [],
+    });
     expect(await techCount()).toBe(2);
     const shared = await env.DB.prepare(
       "SELECT tech_id FROM tech_aliases WHERE alias_key = 'shared'",
@@ -355,7 +364,40 @@ describe("別名の照合と新機能の解決", () => {
     )
       .bind(memoId)
       .first<{ tech_id: string }>();
-    expect(link?.tech_id).toBe(attachedId(alpha));
+    expect(link).toBeNull();
+  });
+});
+
+describe("照合の決定", () => {
+  it("当たった技術が一つなら、未登録の別名だけを足す", () => {
+    expect(
+      planTechResolution(
+        [
+          { key: "workers", label: "Workers" },
+          { key: "cloudflareworkers", label: "Cloudflare Workers" },
+        ],
+        new Map([["cloudflareworkers", "tech-1"]]),
+      ),
+    ).toEqual({
+      kind: "attach",
+      techId: "tech-1",
+      aliasesToInsert: [{ key: "workers", label: "Workers" }],
+    });
+  });
+
+  it("当たった技術が複数なら衝突にし、先に当たった側へ別名を足さない", () => {
+    expect(
+      planTechResolution(
+        [
+          { key: "alpha", label: "Alpha" },
+          { key: "shared", label: "Shared" },
+        ],
+        new Map([
+          ["alpha", "tech-a"],
+          ["shared", "tech-b"],
+        ]),
+      ),
+    ).toEqual({ kind: "conflict", techIds: ["tech-a", "tech-b"] });
   });
 });
 
