@@ -79,3 +79,11 @@ export function acceptClassification(
     }
   }
 }
+
+export async function classifyTech(
+  classifier: Classifier,
+  input: ClassifierInput,
+): Promise<AcceptedClassification> {
+  const proposal = await classifier.classify(input);
+  return acceptClassification(proposal, input);
+}

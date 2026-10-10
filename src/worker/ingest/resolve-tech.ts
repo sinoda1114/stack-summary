@@ -4,25 +4,13 @@ export type TechRelation = "subject" | "comparison";
 
 export type ExtractedRelation = TechRelation | "mention";
 
-export type NearNameDecision =
-  | { kind: "existing"; techId: string }
-  | { kind: "new" };
-
-export type NearNameMatch = (input: {
-  db: D1Database;
-  name: string;
-  entries: readonly AliasEntry[];
-  context: string;
-}) => Promise<NearNameDecision>;
-
 export type ResolveExtractedTechInput = {
   memoId: string;
   name: string;
   aliases: readonly string[];
   relation: ExtractedRelation;
   now: string;
-  context?: string;
-  matchNear?: NearNameMatch;
+  nearTechId?: string;
 };
 
 export type ResolveExtractedTechResult =
@@ -31,6 +19,7 @@ export type ResolveExtractedTechResult =
       techId: string;
       relation: TechRelation;
       created: boolean;
+      near: boolean;
       discarded: readonly string[];
       aliases: readonly AliasEntry[];
     }
@@ -92,6 +81,27 @@ export function planTechResolution(
   return { kind: "attach", techId, aliasesToInsert };
 }
 
+export async function previewExtractedAliases(
+  db: D1Database,
+  name: string,
+  aliases: readonly string[],
+): Promise<{
+  entries: AliasEntry[];
+  discarded: string[];
+  plan: TechResolutionPlan;
+}> {
+  const partitioned = partitionAliases(name, aliases);
+  const hits = await aliasHits(
+    db,
+    partitioned.entries.map((entry) => entry.key),
+  );
+  return {
+    entries: partitioned.entries,
+    discarded: partitioned.discarded,
+    plan: planTechResolution(partitioned.entries, hits),
+  };
+}
+
 export async function resolveExtractedTech(
   db: D1Database,
   input: ResolveExtractedTechInput,
@@ -109,8 +119,7 @@ export async function resolveExtractedTech(
           name: input.name,
           now: input.now,
           relation: input.relation,
-          context: input.context,
-          matchNear: input.matchNear,
+          nearTechId: input.nearTechId,
         },
         entries,
         discarded,
@@ -173,8 +182,7 @@ async function attachTech(
     name: string;
     now: string;
     relation: TechRelation;
-    context?: string;
-    matchNear?: NearNameMatch;
+    nearTechId?: string;
   },
   entries: readonly AliasEntry[],
   discarded: readonly string[],
@@ -199,7 +207,7 @@ async function attachTech(
         return { kind: "conflict", techIds: plan.techIds, discarded };
       case "create":
       case "attach": {
-        const planned = await planWithNearMatch(db, input, entries, hits, plan);
+        const planned = pinNearTech(plan, input.nearTechId);
         const attached = await commitAttachment(db, {
           memoId: input.memoId,
           now: input.now,
@@ -208,8 +216,11 @@ async function attachTech(
           plan: planned,
           discarded,
         });
-        if (attached !== null) {
-          return attached;
+        if (attached !== null && attached.kind === "attached") {
+          return {
+            ...attached,
+            near: plan.kind === "create" && planned.kind === "attach",
+          };
         }
         break;
       }
@@ -223,40 +234,17 @@ async function attachTech(
   throw new Error("別名の照合を確定できませんでした");
 }
 
-async function planWithNearMatch(
-  db: D1Database,
-  input: {
-    name: string;
-    context?: string;
-    matchNear?: NearNameMatch;
-  },
-  entries: readonly AliasEntry[],
-  hits: ReadonlyMap<string, string>,
+function pinNearTech(
   plan: Extract<TechResolutionPlan, { kind: "create" | "attach" }>,
-): Promise<Extract<TechResolutionPlan, { kind: "create" | "attach" }>> {
-  if (plan.kind !== "create" || input.matchNear === undefined) {
-    return plan;
-  }
-  const decision = await input.matchNear({
-    db,
-    name: input.name,
-    entries,
-    context: input.context ?? "",
-  });
-  if (decision.kind !== "existing") {
-    return plan;
-  }
-  const row = await db
-    .prepare("SELECT id FROM techs WHERE id = ?")
-    .bind(decision.techId)
-    .first<{ id: string }>();
-  if (row === null) {
+  nearTechId: string | undefined,
+): Extract<TechResolutionPlan, { kind: "create" | "attach" }> {
+  if (plan.kind !== "create" || nearTechId === undefined) {
     return plan;
   }
   return {
     kind: "attach",
-    techId: decision.techId,
-    aliasesToInsert: entries.filter((entry) => !hits.has(entry.key)),
+    techId: nearTechId,
+    aliasesToInsert: plan.aliasesToInsert,
   };
 }
 
@@ -294,6 +282,7 @@ async function commitAttachment(
     techId,
     relation: await storedRelation(db, input.memoId, techId),
     created: input.plan.kind === "create",
+    near: false,
     discarded: input.discarded,
     aliases: input.plan.aliasesToInsert,
   };

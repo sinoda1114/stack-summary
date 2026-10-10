@@ -16,10 +16,6 @@ export function registerInquiryRoutes(app: Hono<{ Bindings: Env }>): void {
     if (!question.ok) {
       return c.json(fail(question.code, question.message), 400);
     }
-    const runtime = readGeminiRuntime(c.env);
-    if (runtime === null) {
-      return c.json(fail("config", "Gemini の設定がありません"), 500);
-    }
     try {
       const route = await routeChatQuestion(
         clefDecider(clefBinding(c.env.AI)),
@@ -27,6 +23,10 @@ export function registerInquiryRoutes(app: Hono<{ Bindings: Env }>): void {
       );
       if (route !== "stack") {
         return c.json(ok({ answer: chatRouteAnswer(route) }));
+      }
+      const runtime = readGeminiRuntime(c.env);
+      if (runtime === null) {
+        return c.json(fail("config", "Gemini の設定がありません"), 500);
       }
       const context = await loadInquiryContext(c.env.DB);
       const result = await inquireStack(geminiGeneratorFromApiKey(runtime.apiKey), {

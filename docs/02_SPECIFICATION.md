@@ -303,7 +303,7 @@ CREATE TABLE memo_tags (
 
 「Workers」は `workers`、「Cloudflare Workers」は `cloudflareworkers` になる。この 2 つは、どちらかがもう一方の別名候補として返り、同じ `alias_key` に結ばれたときに 1 件になる（AC-03）。空白を除いただけでは同一にしない。抽出の指示文に、短い呼び方と製品の正式名は同じ技術の名前と別名候補として返す、と書く。
 
-照合で既存の `alias_key` に当たったときは、新しい技術を作らない。当たらない名前と別名候補は、新規技術の正式名と別名（出所 `model`）にする。正式名のキーは `tech_aliases` にも入れる。完全一致が無く、既存の別名キーを含む呼び方があるときだけ、Clef が候補から 1 つか新しい技術かを選ぶ。選んだ既存技術への別名の追加は、同じ `batch()` と一意制約で行う。Clef はその `batch()` を置き換えない。候補が無いときは新規のままである。
+照合で既存の `alias_key` に当たったときは、新しい技術を作らない。当たらない名前と別名候補は、新規技術の正式名と別名（出所 `model`）にする。正式名のキーは `tech_aliases` にも入れる。完全一致が無く、既存の別名キーを含む呼び方があるときだけ、請求のやり直しの前に 1 回だけ Clef が候補から 1 つか新しい技術かを選ぶ。選んだ既存技術への別名の追加は、同じ `batch()` と一意制約で行う。Clef はその `batch()` を置き換えない。近い一致で足した別名は、その技術のモデル別名とモデルタグの置き換えには入れない。完全一致と新規の技術だけ、これまで通り置き換える。候補が無いときは新規のままである。
 
 ### 6.5 URL だけのメモ
 
@@ -320,12 +320,13 @@ CREATE TABLE memo_tags (
 
 新機能は、抽出の指示で独立した名前にしない。モデルは親の製品名を `name` に返す。処理は返った `name` を §6.4 で照合し、そのメモを親技術の関連メモにする。`parent_tech_id` は置かない（FR-13）。
 
-格上げ（`POST /api/mentions/promote` の `{ memoId, name }`）は同じ照合を通す。既存の `alias_key` に当たればその技術を使い、当たらなければ新規を作る。そのメモとの関係がまだ無ければ `subject` で `memo_techs` に書く。すでに関係があれば、その関係を残す。成功したら `memo_mentions` のその `(memoId, name)` を消す。
+格上げ（`POST /api/mentions/promote` の `{ memoId, name }`）は完全一致の別名キーだけを見る。近い呼び方の Clef は使わない。既存の `alias_key` に当たればその技術を使い、当たらなければ新規を作る。そのメモとの関係がまだ無ければ `subject` で `memo_techs` に書く。すでに関係があれば、その関係を残す。成功したら `memo_mentions` のその `(memoId, name)` を消す。
 
 ### 6.7 分類器（差し替え可能）
 
 ```ts
 interface Classifier {
+  version: string;
   classify(input: {
     tech: { name: string; context: string };
     categories: { id: string; name: string }[];

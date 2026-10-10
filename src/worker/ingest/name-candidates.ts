@@ -1,3 +1,5 @@
+import { previewExtractedAliases } from "./resolve-tech";
+
 export const NAME_MATCH_LIMIT = 12;
 
 export const MIN_NEAR_KEY_LENGTH = 3;
@@ -93,6 +95,45 @@ export function rankNameCandidates(
       name: item.name,
       aliases: [...item.aliases.values()],
     }));
+}
+
+export async function chooseNearTechId(
+  db: D1Database,
+  input: {
+    name: string;
+    aliases: readonly string[];
+    context: string;
+    rows: readonly AliasRow[];
+    match: (query: {
+      name: string;
+      aliases: readonly string[];
+      context: string;
+      candidates: readonly NameCandidate[];
+    }) => Promise<{ kind: "existing"; techId: string } | { kind: "new" }>;
+  },
+): Promise<string | undefined> {
+  const preview = await previewExtractedAliases(db, input.name, input.aliases);
+  if (preview.plan.kind !== "create") {
+    return undefined;
+  }
+  const decision = await input.match({
+    name: input.name,
+    aliases: preview.entries.map((entry) => entry.label),
+    context: input.context,
+    candidates: rankNameCandidates(
+      preview.entries.map((entry) => entry.key),
+      input.rows,
+      NAME_MATCH_LIMIT,
+    ),
+  });
+  if (decision.kind !== "existing") {
+    return undefined;
+  }
+  const row = await db
+    .prepare("SELECT id FROM techs WHERE id = ?")
+    .bind(decision.techId)
+    .first<{ id: string }>();
+  return row === null ? undefined : row.id;
 }
 
 export async function listAliasRows(db: D1Database): Promise<AliasRow[]> {

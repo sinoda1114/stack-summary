@@ -1,5 +1,5 @@
-import { classifyTech } from "../ai/gemini-classifier";
-import type { Classifier } from "../ai/classifier";
+import { classifyTech, type Classifier } from "../ai/classifier";
+import type { NearTechDecision, NearTechQuery } from "../ai/clef-name-match";
 import {
   InvalidModelOutput,
   type StructuredGenerator,
@@ -26,9 +26,10 @@ import {
 } from "../db/taxonomy";
 import { aliasKey } from "../ingest/normalize";
 import {
-  resolveExtractedTech,
-  type NearNameMatch,
-} from "../ingest/resolve-tech";
+  chooseNearTechId,
+  listAliasRows,
+} from "../ingest/name-candidates";
+import { resolveExtractedTech } from "../ingest/resolve-tech";
 
 export const IMPORT_STEP_RETRY = {
   retries: {
@@ -45,7 +46,7 @@ export type ImportRunner = {
   modelHeavy: string;
   now: string;
   classifier: Classifier;
-  matchNear?: NearNameMatch;
+  matchNear?: (input: NearTechQuery) => Promise<NearTechDecision>;
 };
 
 export async function markImportProcessing(
@@ -116,16 +117,29 @@ export async function applyExtractions(
     string,
     { memoId: string; aliases: Map<string, { key: string; label: string }> }
   >();
+  const rows =
+    runner.matchNear === undefined ? [] : await listAliasRows(runner.db);
+  const techs: { techId: string; context: string }[] = [];
   for (const pair of pairs) {
     for (const tech of pair.extracted.techs) {
+      const context = `${pair.memo.title}\n${pair.memo.body}`;
+      const nearTechId =
+        runner.matchNear === undefined || tech.relation === "mention"
+          ? undefined
+          : await chooseNearTechId(runner.db, {
+              name: tech.name,
+              aliases: tech.aliases,
+              context,
+              rows,
+              match: runner.matchNear,
+            });
       const resolved = await resolveExtractedTech(runner.db, {
         memoId: pair.memo.id,
         name: tech.name,
         aliases: tech.aliases,
         relation: tech.relation,
         now: runner.now,
-        context: `${pair.memo.title}\n${pair.memo.body}`,
-        matchNear: runner.matchNear,
+        nearTechId,
       });
       if (resolved.discarded.length > 0) {
         notes.push(`捨てた候補: ${resolved.discarded.join(", ")}`);
@@ -135,6 +149,10 @@ export async function applyExtractions(
         continue;
       }
       if (resolved.kind !== "attached") {
+        continue;
+      }
+      techs.push({ techId: resolved.techId, context });
+      if (resolved.near) {
         continue;
       }
       const tagIds: string[] = [];
@@ -174,13 +192,7 @@ export async function applyExtractions(
     "aliases",
   );
   await replaceModelAnnotations(runner.db, replacements, "tags");
-  return {
-    techs: replacements.map((item) => ({
-      techId: item.techId,
-      context: contextFor(item.memoId, pairs),
-    })),
-    notes,
-  };
+  return { techs, notes };
 }
 
 export async function classifyImportTechs(
@@ -302,17 +314,6 @@ function aliasLabels(
     entries.push({ key, label });
   }
   return entries;
-}
-
-function contextFor(
-  memoId: string,
-  pairs: readonly { memo: SavedMemo; extracted: ExtractTechOutput }[],
-): string {
-  const memo = pairs.find((pair) => pair.memo.id === memoId)?.memo;
-  if (memo === undefined) {
-    return "";
-  }
-  return `${memo.title}\n${memo.body}`;
 }
 
 async function requireImport(
