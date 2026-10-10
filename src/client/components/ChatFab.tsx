@@ -1,12 +1,11 @@
 import { Affix, Button, CloseButton, Group, Paper, Stack, Text, Textarea } from "@mantine/core";
 import { useEffect, useRef, useState } from "react";
 import { askChat } from "../api";
-import { CHAT_CONTENT_LIMIT, CHAT_MESSAGE_LIMIT, type ChatTurn } from "../../shared/chat";
 
 export function ChatFab() {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState("");
-  const [messages, setMessages] = useState<ChatTurn[]>([]);
+  const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const sending = useRef(false);
@@ -54,14 +53,14 @@ export function ChatFab() {
     setDraft("");
     setPending(true);
     setError(null);
-    const result = await askChat(next.slice(-CHAT_MESSAGE_LIMIT));
+    const result = await askChat(text);
     sending.current = false;
     setPending(false);
     if (!result.success) {
       setError(result.error.message);
       return;
     }
-    setMessages([...next, { role: "assistant", content: result.data.reply }]);
+    setMessages([...next, { role: "assistant", content: result.data.answer }]);
   }
 
   return (
@@ -98,7 +97,7 @@ export function ChatFab() {
             >
               {messages.length === 0 ? (
                 <Text size="sm" c="dimmed">
-                  取り込んだメモと技術について聞けます。使い方も短く案内します。
+                  取り込んだメモと技術について聞けます。使い方は、全体図、取り込み、メモ、受け箱、分類、書き出しです。
                 </Text>
               ) : (
                 messages.map((message, index) => (
@@ -151,7 +150,7 @@ export function ChatFab() {
                   onChange={(event) => setDraft(event.currentTarget.value)}
                   minRows={2}
                   maxRows={4}
-                  maxLength={CHAT_CONTENT_LIMIT}
+                  maxLength={2000}
                 />
                 <Group justify="flex-end">
                   <Button type="submit" variant="default" disabled={pending || draft.trim().length === 0}>

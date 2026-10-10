@@ -20,38 +20,6 @@ export type GeminiRuntime = {
   importMaxChars: number;
 };
 
-export type ChatRuntime = {
-  apiKey: string;
-  model: string;
-};
-
-const CHAT_LIGHT_MODEL_DEFAULT = "gemini-flash-lite-latest";
-
-export function readChatRuntime(env: {
-  GEMINI_API_KEY: string;
-  GEMINI_MODEL: string;
-  GEMINI_MODEL_LIGHT?: string;
-}): ChatRuntime | null {
-  const apiKey = env.GEMINI_API_KEY.trim();
-  const model = chatModelName(env);
-  if (apiKey.length === 0 || model === null) {
-    return null;
-  }
-  return { apiKey, model };
-}
-
-function chatModelName(env: {
-  GEMINI_MODEL: string;
-  GEMINI_MODEL_LIGHT?: string;
-}): string | null {
-  if (typeof env.GEMINI_MODEL_LIGHT === "string") {
-    const light = env.GEMINI_MODEL_LIGHT.trim();
-    return light.length > 0 ? light : CHAT_LIGHT_MODEL_DEFAULT;
-  }
-  const model = env.GEMINI_MODEL.trim();
-  return model.length > 0 ? model : null;
-}
-
 export function readGeminiRuntime(env: {
   GEMINI_API_KEY: string;
   GEMINI_MODEL_LIGHT: string;

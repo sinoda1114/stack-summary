@@ -4,7 +4,6 @@ import { fail, ok } from "./http";
 import { accessAuth } from "./middleware/access-auth";
 import { originCheck } from "./middleware/origin-check";
 import { registerCategoryRoutes } from "./routes/categories";
-import { registerChatRoutes } from "./routes/chat";
 import { registerExportRoutes } from "./routes/export";
 import { registerImportRoutes } from "./routes/imports";
 import { registerInquiryRoutes } from "./routes/inquiries";
@@ -32,7 +31,6 @@ app.get("/api/health", (c) => {
 });
 
 registerCategoryRoutes(app);
-registerChatRoutes(app);
 registerExportRoutes(app);
 registerImportRoutes(app);
 registerInquiryRoutes(app);

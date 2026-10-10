@@ -12,13 +12,14 @@ afterEach(() => {
 describe("問い合わせ", () => {
   it("閉じたボタンからパネルを開き、根拠のある返事を出す", async () => {
     stubBrowser();
-    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
-      const body = JSON.parse(String(init?.body)) as { messages: { role: string; content: string }[] };
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as { question: string };
+      expect(String(input)).toBe("/api/inquiries");
       expect(init?.method).toBe("POST");
-      expect(body.messages).toEqual([{ role: "user", content: "Hono は？" }]);
+      expect(body.question).toBe("Hono は？");
       return Response.json({
         success: true,
-        data: { reply: "根拠には Hono があります。" },
+        data: { answer: "根拠には Hono があります。" },
         error: null,
       });
     });
@@ -33,7 +34,7 @@ describe("問い合わせ", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "問い合わせ" }));
     expect(screen.getByRole("dialog", { name: "問い合わせ" })).toBeTruthy();
-    expect(screen.getByText("取り込んだメモと技術について聞けます。使い方も短く案内します。")).toBeTruthy();
+    expect(screen.getByText(/取り込んだメモと技術について聞けます/)).toBeTruthy();
 
     await userEvent.type(screen.getByLabelText("質問"), "Hono は？");
     await userEvent.click(screen.getByRole("button", { name: "送る" }));
