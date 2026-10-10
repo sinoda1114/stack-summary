@@ -202,6 +202,61 @@ describe("取り込み", () => {
     });
   });
 
+  it("同じ取り込みの後続抽出は、先に付いたモデル別名を消さない", async () => {
+    await insertSubcategory("sub-hono", "backend", "Web フレームワーク");
+    const importId = await queue("Hono と別名");
+    const split = JSON.stringify({
+      memos: [
+        { title: "先", body: "先に Hono.js", memoDate: "2026-10-10", urls: [] },
+        { title: "後", body: "後から Hono", memoDate: "2026-10-10", urls: [] },
+      ],
+      skippedCount: 0,
+    });
+    await executeImport(
+      immediateStep(),
+      runner(
+        scripted([
+          split,
+          extractBody("Hono", "subject", ["honojs"], "Cloudflare"),
+          extractBody("Hono", "comparison", ["honox"], "Cloudflare"),
+          classifyExisting("sub-hono"),
+        ]).generator,
+      ),
+      importId,
+    );
+    const aliases = await env.DB.prepare(
+      "SELECT alias_key FROM tech_aliases ORDER BY alias_key",
+    ).all<{ alias_key: string }>();
+    expect(aliases.results.map((row) => row.alias_key)).toEqual([
+      "hono",
+      "honojs",
+      "honox",
+    ]);
+  });
+
+  it("Workflow を作れないときは取り込みを残さない", async () => {
+    const workflow: ImportWorkflowClient = {
+      async get() {
+        throw new Error("missing");
+      },
+      async create() {
+        throw new Error("boom");
+      },
+    };
+    await expect(
+      createImport({
+        db: env.DB,
+        workflow,
+        maxChars: 50000,
+        text: "失敗する原文",
+        sourceLabel: null,
+        now: NOW,
+      }),
+    ).rejects.toThrow("boom");
+    const rows = await env.DB.prepare("SELECT id FROM imports").all();
+    expect(rows.results).toHaveLength(0);
+  });
+
   it("同じ原文は Workflow を起動せず、再処理の ID は回数を付ける", async () => {
     const workflow = fakeWorkflow();
     const created = await createImport({
@@ -257,8 +312,8 @@ describe("取り込み", () => {
     expect(reprocessed.status).toBe(202);
     expect(reprocessed.data?.status).toBe("queued");
     expect(reprocessed.data?.error).toBeNull();
-    expect(workflow.created[1]?.id).toBe(`${importId}:1`);
-    expect(await nextWorkflowId(workflow, importId)).toBe(`${importId}:2`);
+    expect(workflow.created[1]?.id).toBe(`${importId}-1`);
+    expect(await nextWorkflowId(workflow, importId)).toBe(`${importId}-2`);
   });
 });
 

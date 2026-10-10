@@ -5,6 +5,17 @@ export type ModelAnnotation = {
   tagIds: readonly string[];
 };
 
+export async function insertModelAliases(
+  db: D1Database,
+  techId: string,
+  aliases: readonly { key: string; label: string }[],
+): Promise<void> {
+  if (aliases.length === 0) {
+    return;
+  }
+  await db.batch(aliases.map((alias) => aliasInsert(db, techId, alias)));
+}
+
 export async function replaceModelAnnotations(
   db: D1Database,
   items: readonly ModelAnnotation[],
@@ -99,15 +110,21 @@ function aliasStatements(
     );
   }
   for (const alias of item.aliases) {
-    statements.push(
-      db
-        .prepare(
-          `INSERT INTO tech_aliases (alias_key, alias, tech_id, source)
-           VALUES (?, ?, ?, 'model')
-           ON CONFLICT(alias_key) DO NOTHING`,
-        )
-        .bind(alias.key, alias.label, item.techId),
-    );
+    statements.push(aliasInsert(db, item.techId, alias));
   }
   return statements;
+}
+
+function aliasInsert(
+  db: D1Database,
+  techId: string,
+  alias: { key: string; label: string },
+): D1PreparedStatement {
+  return db
+    .prepare(
+      `INSERT INTO tech_aliases (alias_key, alias, tech_id, source)
+       VALUES (?, ?, ?, 'model')
+       ON CONFLICT(alias_key) DO NOTHING`,
+    )
+    .bind(alias.key, alias.label, techId);
 }

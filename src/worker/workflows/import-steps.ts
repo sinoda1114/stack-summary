@@ -13,7 +13,10 @@ import {
   updateImport,
   type ImportRecord,
 } from "../db/imports";
-import { replaceModelAnnotations } from "../db/model-annotations";
+import {
+  insertModelAliases,
+  replaceModelAnnotations,
+} from "../db/model-annotations";
 import { upsertSplitMemo, type SavedMemo } from "../db/memos";
 import { upsertTag } from "../db/tags";
 import {
@@ -102,19 +105,19 @@ export async function applyExtractions(
 }> {
   const notes: string[] = [];
   const replacements: Replacement[] = [];
+  const aliasKeep = new Map<
+    string,
+    { memoId: string; aliases: Map<string, { key: string; label: string }> }
+  >();
   for (const pair of pairs) {
     for (const tech of pair.extracted.techs) {
-      const resolved = await resolveExtractedTech(
-        runner.db,
-        {
-          memoId: pair.memo.id,
-          name: tech.name,
-          aliases: tech.aliases,
-          relation: tech.relation,
-          now: runner.now,
-        },
-        { writeAliases: false },
-      );
+      const resolved = await resolveExtractedTech(runner.db, {
+        memoId: pair.memo.id,
+        name: tech.name,
+        aliases: tech.aliases,
+        relation: tech.relation,
+        now: runner.now,
+      });
       if (resolved.discarded.length > 0) {
         notes.push(`捨てた候補: ${resolved.discarded.join(", ")}`);
       }
@@ -134,16 +137,34 @@ export async function applyExtractions(
           await upsertTag(runner.db, { name: tag.name, kind: tag.kind }),
         );
       }
-      const replacement: Replacement = {
+      const labels = aliasLabels(tech.name, tech.aliases);
+      await insertModelAliases(runner.db, resolved.techId, labels);
+      const kept = aliasKeep.get(resolved.techId) ?? {
+        memoId: pair.memo.id,
+        aliases: new Map<string, { key: string; label: string }>(),
+      };
+      for (const label of labels) {
+        kept.aliases.set(label.key, label);
+      }
+      aliasKeep.set(resolved.techId, kept);
+      replacements.push({
         memoId: pair.memo.id,
         techId: resolved.techId,
-        aliases: aliasLabels(tech.name, tech.aliases),
+        aliases: labels,
         tagIds,
-      };
-      await replaceModelAnnotations(runner.db, [replacement], "aliases");
-      replacements.push(replacement);
+      });
     }
   }
+  await replaceModelAnnotations(
+    runner.db,
+    [...aliasKeep.entries()].map(([techId, kept]) => ({
+      memoId: kept.memoId,
+      techId,
+      aliases: [...kept.aliases.values()],
+      tagIds: [],
+    })),
+    "aliases",
+  );
   await replaceModelAnnotations(runner.db, replacements, "tags");
   return {
     techs: replacements.map((item) => ({

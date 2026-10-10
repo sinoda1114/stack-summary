@@ -131,7 +131,12 @@ export async function createImport(input: {
     sourceLabel: input.sourceLabel,
     now: input.now,
   });
-  await input.workflow.create({ id, params: { importId: id } });
+  try {
+    await input.workflow.create({ id, params: { importId: id } });
+  } catch (error) {
+    await input.db.prepare("DELETE FROM imports WHERE id = ?").bind(id).run();
+    throw error;
+  }
   const created = await findImportById(input.db, id);
   if (created === null) {
     throw new Error("取り込みを読めませんでした");
@@ -157,15 +162,15 @@ export async function reprocessImport(input: {
       error: { code: "not_found", message: "取り込みが見つかりません" },
     };
   }
-  await updateImport(input.db, input.id, {
-    status: "queued",
-    error: null,
-    now: input.now,
-  });
   const instanceId = await nextWorkflowId(input.workflow, input.id);
   await input.workflow.create({
     id: instanceId,
     params: { importId: input.id },
+  });
+  await updateImport(input.db, input.id, {
+    status: "queued",
+    error: null,
+    now: input.now,
   });
   const updated = await findImportById(input.db, input.id);
   if (updated === null) {
@@ -182,7 +187,7 @@ export async function nextWorkflowId(
     return importId;
   }
   for (let count = 1; count <= 100; count += 1) {
-    const candidate = `${importId}:${count}`;
+    const candidate = `${importId}-${count}`;
     if (!(await workflowExists(workflow, candidate))) {
       return candidate;
     }
