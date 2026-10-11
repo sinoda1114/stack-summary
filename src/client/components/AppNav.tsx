@@ -11,7 +11,6 @@ type Screen = {
   to?: string;
   end?: boolean;
   icon?: NavIconName;
-  wideOnly?: boolean;
   match: (pathname: string) => boolean;
 };
 
@@ -25,9 +24,9 @@ const SCREENS: Screen[] = [
     icon: "memo",
     match: (pathname) => pathname === "/memos" || pathname.startsWith("/memos/"),
   },
-  { label: "受け箱", to: "/inbox", icon: "inbox", wideOnly: true, match: (pathname) => pathname === "/inbox" },
-  { label: "分類", to: "/taxonomy", icon: "taxonomy", wideOnly: true, match: (pathname) => pathname === "/taxonomy" },
-  { label: "書き出し", to: "/export", icon: "export", wideOnly: true, match: (pathname) => pathname === "/export" },
+  { label: "受け箱", to: "/inbox", icon: "inbox", match: (pathname) => pathname === "/inbox" },
+  { label: "分類", to: "/taxonomy", icon: "taxonomy", match: (pathname) => pathname === "/taxonomy" },
+  { label: "書き出し", to: "/export", icon: "export", match: (pathname) => pathname === "/export" },
   { label: "技術", match: (pathname) => pathname.startsWith("/techs/") },
   { label: "小分類", match: (pathname) => pathname.startsWith("/subcategories/") },
 ];
@@ -127,7 +126,7 @@ export function AppNav() {
     menuRef.current?.focus();
   }
 
-  const body = <NavBody mobile={mobile} onSelect={mobile ? closeToMenu : undefined} />;
+  const body = <NavBody onSelect={mobile ? closeToMenu : undefined} />;
 
   if (!mobile) {
     return <aside className="sidebar">{body}</aside>;
@@ -170,8 +169,8 @@ export function AppNav() {
   );
 }
 
-function NavBody(props: { mobile: boolean; onSelect?: () => void }) {
-  const links = SCREENS.filter(isNavLink).filter((screen) => !(props.mobile && screen.wideOnly));
+function NavBody(props: { onSelect?: () => void }) {
+  const links = SCREENS.filter(isNavLink);
   return (
     <>
       <Link to="/" className="wordmark" onClick={props.onSelect}>

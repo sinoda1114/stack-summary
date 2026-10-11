@@ -75,9 +75,9 @@ describe("画面ナビ", () => {
     expect(screen.getByRole("link", { name: "関係" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "取り込み" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "メモ" })).toBeTruthy();
-    expect(screen.queryByRole("link", { name: "受け箱" })).toBeNull();
-    expect(screen.queryByRole("link", { name: "分類" })).toBeNull();
-    expect(screen.queryByRole("link", { name: "書き出し" })).toBeNull();
+    expect(screen.getByRole("link", { name: "受け箱" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "分類" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "書き出し" })).toBeTruthy();
   });
 
   it("狭い幅では外側か項目でドロワーを閉じる", async () => {
