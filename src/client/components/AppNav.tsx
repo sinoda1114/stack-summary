@@ -1,14 +1,180 @@
-import type { ReactNode } from "react";
-import { Link, NavLink } from "react-router";
-import { useIsMobile } from "../hooks/useIsMobile";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useMediaQuery } from "@mantine/hooks";
+import { Link, NavLink, useLocation } from "react-router";
+
+const NARROW_NAV_QUERY = "(max-width: 768px)";
 
 type NavIconName = "grid" | "relations" | "import" | "memo" | "inbox" | "taxonomy" | "export";
 
+type Screen = {
+  label: string;
+  to?: string;
+  end?: boolean;
+  icon?: NavIconName;
+  wideOnly?: boolean;
+  match: (pathname: string) => boolean;
+};
+
+const SCREENS: Screen[] = [
+  { label: "全体図", to: "/", end: true, icon: "grid", match: (pathname) => pathname === "/" },
+  { label: "関係", to: "/relations", icon: "relations", match: (pathname) => pathname === "/relations" },
+  { label: "取り込み", to: "/imports", icon: "import", match: (pathname) => pathname === "/imports" },
+  {
+    label: "メモ",
+    to: "/memos",
+    icon: "memo",
+    match: (pathname) => pathname === "/memos" || pathname.startsWith("/memos/"),
+  },
+  { label: "受け箱", to: "/inbox", icon: "inbox", wideOnly: true, match: (pathname) => pathname === "/inbox" },
+  { label: "分類", to: "/taxonomy", icon: "taxonomy", wideOnly: true, match: (pathname) => pathname === "/taxonomy" },
+  { label: "書き出し", to: "/export", icon: "export", wideOnly: true, match: (pathname) => pathname === "/export" },
+  { label: "技術", match: (pathname) => pathname.startsWith("/techs/") },
+  { label: "小分類", match: (pathname) => pathname.startsWith("/subcategories/") },
+];
+
+function canonicalPath(pathname: string): string {
+  if (pathname.length > 1 && pathname.endsWith("/")) {
+    return pathname.replace(/\/+$/, "");
+  }
+  return pathname;
+}
+
+function screenName(pathname: string): string {
+  const path = canonicalPath(pathname);
+  return SCREENS.find((screen) => screen.match(path))?.label ?? "全体図";
+}
+
+function isNavLink(screen: Screen): screen is Screen & { to: string; icon: NavIconName } {
+  return screen.to !== undefined && screen.icon !== undefined;
+}
+
 export function AppNav() {
-  const mobile = useIsMobile();
+  const mobile = useMediaQuery(NARROW_NAV_QUERY, false, { getInitialValueInEffect: false });
+  const { pathname } = useLocation();
+  const [openedAt, setOpenedAt] = useState<string | null>(null);
+  const menuRef = useRef<HTMLButtonElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
+  const drawerRef = useRef<HTMLElement>(null);
+  const wasOpen = useRef(false);
+  const open = mobile && openedAt === pathname;
+  if (openedAt !== null && !open) {
+    setOpenedAt(null);
+  }
+
+  useEffect(() => {
+    if (wasOpen.current && !open) {
+      menuRef.current?.focus();
+    }
+    wasOpen.current = open;
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const background = [headerRef.current, document.querySelector(".sheet"), document.querySelector(".chat-dock")].filter(
+      (node): node is HTMLElement => node instanceof HTMLElement,
+    );
+    for (const node of background) {
+      node.inert = true;
+    }
+    drawerRef.current?.querySelector<HTMLElement>("a")?.focus();
+
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        if (headerRef.current !== null) {
+          headerRef.current.inert = false;
+        }
+        setOpenedAt(null);
+        menuRef.current?.focus();
+        return;
+      }
+      if (event.key !== "Tab" || drawerRef.current === null) {
+        return;
+      }
+      const nodes = [...drawerRef.current.querySelectorAll<HTMLElement>("a[href], button:not([disabled])")];
+      const first = nodes[0];
+      const last = nodes[nodes.length - 1];
+      if (first === undefined || last === undefined) {
+        return;
+      }
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+        return;
+      }
+      if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => {
+      window.removeEventListener("keydown", onKey, true);
+      for (const node of background) {
+        node.inert = false;
+      }
+    };
+  }, [open]);
+
+  function closeToMenu(): void {
+    if (headerRef.current !== null) {
+      headerRef.current.inert = false;
+    }
+    setOpenedAt(null);
+    menuRef.current?.focus();
+  }
+
+  const body = <NavBody mobile={mobile} onSelect={mobile ? closeToMenu : undefined} />;
+
+  if (!mobile) {
+    return <aside className="sidebar">{body}</aside>;
+  }
+
   return (
-    <aside className="sidebar">
-      <Link to="/" className="wordmark">
+    <>
+      <header ref={headerRef} className="mobile-bar">
+        <button
+          ref={menuRef}
+          type="button"
+          className="nav-menu"
+          aria-label="メニューを開く"
+          aria-expanded={open}
+          aria-controls={open ? "app-nav-drawer" : undefined}
+          onClick={() => {
+            setOpenedAt(pathname);
+          }}
+        >
+          <span aria-hidden="true">☰</span>
+        </button>
+        <p className="mobile-title">{screenName(pathname)}</p>
+      </header>
+      {open ? (
+        <>
+          <div className="drawer-scrim" onClick={closeToMenu} />
+          <aside
+            ref={drawerRef}
+            id="app-nav-drawer"
+            className="sidebar sidebar-drawer"
+            role="dialog"
+            aria-modal="true"
+            aria-label="メニュー"
+          >
+            {body}
+          </aside>
+        </>
+      ) : null}
+    </>
+  );
+}
+
+function NavBody(props: { mobile: boolean; onSelect?: () => void }) {
+  const links = SCREENS.filter(isNavLink).filter((screen) => !(props.mobile && screen.wideOnly));
+  return (
+    <>
+      <Link to="/" className="wordmark" onClick={props.onSelect}>
         <span className="mark">S</span>
         <span>
           <b>STACK</b>
@@ -16,25 +182,24 @@ export function AppNav() {
         </span>
       </Link>
       <nav className="nav-links" aria-label="画面">
-        <Item to="/" end icon="grid" label="全体図" />
-        <Item to="/relations" icon="relations" label="関係" />
-        <Item to="/imports" icon="import" label="取り込み" />
-        <Item to="/memos" icon="memo" label="メモ" />
-        {mobile ? null : (
-          <>
-            <Item to="/inbox" icon="inbox" label="受け箱" />
-            <Item to="/taxonomy" icon="taxonomy" label="分類" />
-            <Item to="/export" icon="export" label="書き出し" />
-          </>
-        )}
+        {links.map((screen) => (
+          <Item
+            key={screen.to}
+            to={screen.to}
+            end={screen.end}
+            icon={screen.icon}
+            label={screen.label}
+            onSelect={props.onSelect}
+          />
+        ))}
       </nav>
-    </aside>
+    </>
   );
 }
 
-function Item(props: { to: string; end?: boolean; icon: NavIconName; label: string }) {
+function Item(props: { to: string; end?: boolean; icon: NavIconName; label: string; onSelect?: () => void }) {
   return (
-    <NavLink to={props.to} end={props.end} className="nav-link">
+    <NavLink to={props.to} end={props.end} className="nav-link" onClick={props.onSelect}>
       <NavIcon name={props.icon} />
       {props.label}
     </NavLink>
