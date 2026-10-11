@@ -97,7 +97,11 @@ function MemoSearch() {
     <Stack gap="lg">
       <Title order={1}>メモ</Title>
       {notice === null ? null : <Text className="note">{notice}</Text>}
-      <TextInput label="検索" value={q} onChange={(event) => setQ(event.currentTarget.value)} />
+      <TextInput
+        label="検索"
+        value={q}
+        onChange={(event) => setQ(event.currentTarget.value)}
+      />
       {memos.length === 0 ? null : (
         <Stack gap={0} className="record-list">
           {memos.map((memo) => (
