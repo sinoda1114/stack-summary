@@ -45,6 +45,7 @@ export function AppNav() {
   const { pathname } = useLocation();
   const [openedAt, setOpenedAt] = useState<string | null>(null);
   const menuRef = useRef<HTMLButtonElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
   const drawerRef = useRef<HTMLElement>(null);
   const open = mobile && openedAt === pathname;
   if (openedAt !== null && !open) {
@@ -55,7 +56,7 @@ export function AppNav() {
     if (!open) {
       return;
     }
-    const background = [document.querySelector(".sheet"), document.querySelector(".chat-dock")].filter(
+    const background = [headerRef.current, document.querySelector(".sheet"), document.querySelector(".chat-dock")].filter(
       (node): node is HTMLElement => node instanceof HTMLElement,
     );
     for (const node of background) {
@@ -67,6 +68,9 @@ export function AppNav() {
       if (event.key === "Escape") {
         event.preventDefault();
         event.stopImmediatePropagation();
+        if (headerRef.current !== null) {
+          headerRef.current.inert = false;
+        }
         setOpenedAt(null);
         menuRef.current?.focus();
         return;
@@ -80,14 +84,12 @@ export function AppNav() {
       if (first === undefined || last === undefined) {
         return;
       }
-      const active = document.activeElement;
-      const inside = active instanceof Node && drawerRef.current.contains(active);
-      if (event.shiftKey && (active === first || !inside)) {
+      if (event.shiftKey && document.activeElement === first) {
         event.preventDefault();
         last.focus();
         return;
       }
-      if (!event.shiftKey && (active === last || !inside)) {
+      if (!event.shiftKey && document.activeElement === last) {
         event.preventDefault();
         first.focus();
       }
@@ -102,6 +104,9 @@ export function AppNav() {
   }, [open]);
 
   function closeToMenu(): void {
+    if (headerRef.current !== null) {
+      headerRef.current.inert = false;
+    }
     setOpenedAt(null);
     menuRef.current?.focus();
   }
@@ -114,7 +119,7 @@ export function AppNav() {
 
   return (
     <>
-      <header className="mobile-bar">
+      <header ref={headerRef} className="mobile-bar">
         <button
           ref={menuRef}
           type="button"
