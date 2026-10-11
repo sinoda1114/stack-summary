@@ -32,8 +32,16 @@ const SCREENS: Screen[] = [
   { label: "小分類", match: (pathname) => pathname.startsWith("/subcategories/") },
 ];
 
+function canonicalPath(pathname: string): string {
+  if (pathname.length > 1 && pathname.endsWith("/")) {
+    return pathname.replace(/\/+$/, "");
+  }
+  return pathname;
+}
+
 function screenName(pathname: string): string {
-  return SCREENS.find((screen) => screen.match(pathname))?.label ?? "全体図";
+  const path = canonicalPath(pathname);
+  return SCREENS.find((screen) => screen.match(path))?.label ?? "全体図";
 }
 
 function isNavLink(screen: Screen): screen is Screen & { to: string; icon: NavIconName } {
@@ -47,10 +55,18 @@ export function AppNav() {
   const menuRef = useRef<HTMLButtonElement>(null);
   const headerRef = useRef<HTMLElement>(null);
   const drawerRef = useRef<HTMLElement>(null);
+  const wasOpen = useRef(false);
   const open = mobile && openedAt === pathname;
   if (openedAt !== null && !open) {
     setOpenedAt(null);
   }
+
+  useEffect(() => {
+    if (wasOpen.current && !open) {
+      menuRef.current?.focus();
+    }
+    wasOpen.current = open;
+  }, [open]);
 
   useEffect(() => {
     if (!open) {

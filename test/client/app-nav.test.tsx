@@ -110,6 +110,9 @@ describe("画面ナビ", () => {
     stubMobile();
     renderNav("/techs/hono");
     expect(document.querySelector(".mobile-title")?.textContent).toBe("技術");
+    cleanup();
+    renderNav("/relations/");
+    expect(document.querySelector(".mobile-title")?.textContent).toBe("関係");
   });
 });
 
